@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "WgpuWrappersSilk.Net": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}
