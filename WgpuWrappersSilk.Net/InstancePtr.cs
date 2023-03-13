@@ -53,7 +53,7 @@ namespace WgpuWrappersSilk.Net
 
             return new SurfacePtr(_wgpu, _wgpu.InstanceCreateSurface(_ptr, new SurfaceDescriptor(
                 label: marshalledLabel.Ptr,
-                nextInChain: (ChainedStruct*)&descriptor
+                nextInChain: &descriptor.Chain
                 )));
         }
 
@@ -70,7 +70,7 @@ namespace WgpuWrappersSilk.Net
 
             return new SurfacePtr(_wgpu, _wgpu.InstanceCreateSurface(_ptr, new SurfaceDescriptor(
                 label: marshalledLabel.Ptr,
-                nextInChain: (ChainedStruct*)&descriptor
+                nextInChain: &descriptor.Chain
                 )));
         }
 
@@ -85,7 +85,7 @@ namespace WgpuWrappersSilk.Net
 
             return new SurfacePtr(_wgpu, _wgpu.InstanceCreateSurface(_ptr, new SurfaceDescriptor(
                 label: marshalledLabel.Ptr,
-                nextInChain: (ChainedStruct*)&descriptor
+                nextInChain: &descriptor.Chain
                 )));
         }
 
@@ -101,7 +101,7 @@ namespace WgpuWrappersSilk.Net
 
             return new SurfacePtr(_wgpu, _wgpu.InstanceCreateSurface(_ptr, new SurfaceDescriptor(
                 label: marshalledLabel.Ptr,
-                nextInChain: (ChainedStruct*)&descriptor
+                nextInChain: &descriptor.Chain
                 )));
         }
 
@@ -116,7 +116,7 @@ namespace WgpuWrappersSilk.Net
 
             return new SurfacePtr(_wgpu, _wgpu.InstanceCreateSurface(_ptr, new SurfaceDescriptor(
                 label: marshalledLabel.Ptr,
-                nextInChain: (ChainedStruct*)&descriptor
+                nextInChain: &descriptor.Chain
                 )));
         }
 
@@ -132,7 +132,7 @@ namespace WgpuWrappersSilk.Net
 
             return new SurfacePtr(_wgpu, _wgpu.InstanceCreateSurface(_ptr, new SurfaceDescriptor(
                 label: marshalledLabel.Ptr,
-                nextInChain: (ChainedStruct*)&descriptor
+                nextInChain: &descriptor.Chain
                 )));
         }
 
@@ -148,7 +148,7 @@ namespace WgpuWrappersSilk.Net
 
             return new SurfacePtr(_wgpu, _wgpu.InstanceCreateSurface(_ptr, new SurfaceDescriptor(
                 label: marshalledLabel.Ptr,
-                nextInChain: (ChainedStruct*)&descriptor
+                nextInChain: &descriptor.Chain
                 )));
         }
         #endregion
