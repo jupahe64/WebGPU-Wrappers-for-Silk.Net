@@ -295,4 +295,39 @@ namespace WgpuWrappersSilk.Net
             return payloadSize;
         }
     }
+
+    public unsafe struct ShaderModuleCompilationHint
+    {
+        public string EntryPoint;
+        public PipelineLayoutPtr PipelineLayout;
+
+        public ShaderModuleCompilationHint(string entryPoint, PipelineLayoutPtr pipelineLayout)
+        {
+            EntryPoint = entryPoint;
+            PipelineLayout = pipelineLayout;
+        }
+
+        internal int CalculatePayloadSize()
+        {
+            return Encoding.UTF8.GetByteCount(EntryPoint)+1;
+        }
+
+        internal int PackInto(ref WGPU.ShaderModuleCompilationHint baseStruct, Span<byte> payloadBuffer)
+        {
+            int payloadSize;
+
+            fixed(byte* startPtr = &payloadBuffer[0])
+            {
+                baseStruct.Layout = PipelineLayout;
+
+                var ptr = startPtr;
+
+                baseStruct.EntryPoint = ptr;
+                ptr += Encoding.UTF8.GetBytes(EntryPoint, payloadBuffer[(int)(ptr - startPtr)..])+1;
+
+                payloadSize = (int)(ptr - startPtr);
+            }
+            return payloadSize;
+        }
+    }
 }

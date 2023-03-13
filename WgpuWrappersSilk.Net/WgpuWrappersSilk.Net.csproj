@@ -13,4 +13,10 @@
     <ProjectReference Include="..\..\..\..\Documents\GitHub\Silk.Net\src\Windowing\Silk.NET.Windowing\Silk.NET.Windowing.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="shader.wgsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

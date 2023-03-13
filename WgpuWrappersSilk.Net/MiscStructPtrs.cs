@@ -68,9 +68,10 @@ namespace WgpuWrappersSilk.Net
 
     public unsafe static class BindGroupLayoutEntries
     {
-        public static BindGroupLayoutEntry Buffer(uint binding, ShaderStage visibility, BufferBindingType bindingType, bool hasDynamicOffset = false) =>
+        public static BindGroupLayoutEntry Buffer(uint binding, ShaderStage visibility, BufferBindingType bindingType, 
+            ulong minBindingSize, bool hasDynamicOffset = false) =>
             new(binding: binding, visibility: visibility,
-                buffer: new(type: bindingType, hasDynamicOffset: hasDynamicOffset));
+                buffer: new(type: bindingType, hasDynamicOffset: hasDynamicOffset, minBindingSize: minBindingSize));
 
         public static BindGroupLayoutEntry Sampler(uint binding, ShaderStage visibility, SamplerBindingType bindingType) =>
             new(binding: binding, visibility: visibility,
@@ -234,8 +235,36 @@ namespace WgpuWrappersSilk.Net
         public static implicit operator RenderBundleEncoder*(RenderBundleEncoderPtr ptr) => ptr._ptr;
     }
 
-    //public readonly unsafe struct ComputePipelinePtr
-    //{
+    public readonly unsafe struct SamplerPtr
+    {
+       private readonly WebGPU _wgpu;
+       private readonly Sampler* _ptr;
+
+       public SamplerPtr(WebGPU wgpu, Sampler* ptr)
+       {
+           _wgpu = wgpu;
+           _ptr = ptr;
+       }
+
+       public static implicit operator Sampler*(SamplerPtr ptr) => ptr._ptr;
+    }
+
+    public readonly unsafe struct TexturePtr
+    {
+       private readonly WebGPU _wgpu;
+       private readonly Texture* _ptr;
+
+       public TexturePtr(WebGPU wgpu, Texture* ptr)
+       {
+           _wgpu = wgpu;
+           _ptr = ptr;
+       }
+
+       public static implicit operator Texture*(TexturePtr ptr) => ptr._ptr;
+    }
+
+    // public readonly unsafe struct ComputePipelinePtr
+    // {
     //    private readonly WebGPU _wgpu;
     //    private readonly ComputePipeline* _ptr;
 
@@ -246,5 +275,5 @@ namespace WgpuWrappersSilk.Net
     //    }
 
     //    public static implicit operator ComputePipeline*(ComputePipelinePtr ptr) => ptr._ptr;
-    //}
+    // }
 }

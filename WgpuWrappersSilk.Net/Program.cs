@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using static WgpuWrappersSilk.Net.BindGroupLayoutEntries;
 
 namespace WgpuWrappersSilk.Net
 {
@@ -55,13 +56,35 @@ namespace WgpuWrappersSilk.Net
             //        ("PushConstant2", 2.5),
             //    }), default, "Hello");
 
-            device.CreateRenderPipeline(
+            var vertexUniformsLayout = device.CreateBindGroupLayout(new BindGroupLayoutEntry[]
+            {
+                Buffer(0, ShaderStage.Vertex, BufferBindingType.Uniform, sizeof(float)*4*4)
+            });
+
+            var pipelineLayout = device.CreatePipelineLayout(new BindGroupLayoutPtr[]
+            {
+                vertexUniformsLayout
+            });
+
+            device.SetUncapturedErrorCallback((type, m) =>
+            {
+                Debugger.Break();
+            });
+
+            var shaderModule = device.CreateShaderModuleWGSL(File.ReadAllBytes("shader.wgsl"),
+                new ShaderModuleCompilationHint[]
+                {
+                    new ("vs_main", pipelineLayout),
+                    new ("fs_main", pipelineLayout),
+                });
+
+            var pipeline = device.CreateRenderPipeline(
                 label: "DefaultPipeline",
-                layout: default, 
+                layout: pipelineLayout, 
                 vertex: new VertexState
                 {
-                    ShaderModule = default, 
-                    EntryPoint = "main",
+                    ShaderModule = shaderModule, 
+                    EntryPoint = "vs_main",
                     Constants = new (string key, double value)[]
                     {
                         ("PushConstant0", 0.5),
@@ -78,11 +101,11 @@ namespace WgpuWrappersSilk.Net
                             }
                         ),
                         new(
-                            8, VertexStepMode.Vertex,
+                            sizeof(float) * 5, VertexStepMode.Vertex,
                             new VertexAttribute[]
                             {
                                 new(VertexFormat.Float32x3, 0, 1),
-                                new(VertexFormat.Float32x2, 12, 2),
+                                new(VertexFormat.Float32x2, sizeof(float) * 3, 2),
                             }
                         )
                     }
@@ -90,7 +113,6 @@ namespace WgpuWrappersSilk.Net
                 primitive: new PrimitiveState
                 {
                     Topology = PrimitiveTopology.TriangleList,
-                    StripIndexFormat = IndexFormat.Uint16,
                     FrontFace = FrontFace.Ccw,
                     CullMode = CullMode.Back
                 },
@@ -99,6 +121,8 @@ namespace WgpuWrappersSilk.Net
                     DepthCompare = CompareFunction.LessEqual,
                     DepthWriteEnabled = true,
                     Format = TextureFormat.Depth24PlusStencil8,
+                    StencilFront = new StencilFaceState(CompareFunction.Always),
+                    StencilBack = new StencilFaceState(CompareFunction.Always)
                 },
                 multisample: new MultisampleState
                 {
@@ -106,8 +130,8 @@ namespace WgpuWrappersSilk.Net
                 },
                 fragment: new FragmentState
                 {
-                    ShaderModule = default,
-                    EntryPoint = "main",
+                    ShaderModule = shaderModule,
+                    EntryPoint = "fs_main",
                     Constants = new (string key, double value)[]
                     {
                         ("PushConstant3", 3.5),
@@ -116,7 +140,7 @@ namespace WgpuWrappersSilk.Net
                     ColorTargets = new ColorTargetState[]
                     {
                         new(
-                            TextureFormat.Rgba8Uint, 
+                            TextureFormat.Rgba8Unorm, 
                             (
                                 color: new(BlendOperation.Add, BlendFactor.SrcAlpha, BlendFactor.OneMinusSrcAlpha),
                                 alpha: new(BlendOperation.Add, BlendFactor.SrcAlpha, BlendFactor.OneMinusSrcAlpha)
@@ -129,7 +153,7 @@ namespace WgpuWrappersSilk.Net
                             ColorWriteMask.All
                         ),
                         new(
-                            TextureFormat.Rgba8Uint,
+                            TextureFormat.Rgba8Unorm,
                             (
                                 color: new(BlendOperation.Max, BlendFactor.SrcAlpha, BlendFactor.OneMinusSrcAlpha),
                                 alpha: new(BlendOperation.Add, BlendFactor.Zero, BlendFactor.One)

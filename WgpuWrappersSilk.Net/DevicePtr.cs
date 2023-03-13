@@ -4,10 +4,13 @@ using System.Collections.Generic;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using WGPU = Silk.NET.WebGPU;
 
 namespace WgpuWrappersSilk.Net
 {
+    public delegate void ErrorCallback(ErrorType type, string? message);
+
     public readonly unsafe struct DevicePtr
     {
         private static readonly List<(WebGPU, TaskCompletionSource<ComputePipelinePtr>)> s_computePipelineRequests = new();
@@ -26,6 +29,17 @@ namespace WgpuWrappersSilk.Net
         {
             var (wgpu, task) = s_renderPipelineRequests[(int)data];
             task.SetResult(new RenderPipelinePtr(wgpu, pipeline));
+        }
+
+        private static readonly List<ErrorCallback> s_errorCallbacks = new();
+
+        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+        private static void UncapturedErrorCallback(ErrorType type, byte* message, void* data)
+        {
+            s_errorCallbacks[(int)data].Invoke(
+                type, 
+                SilkMarshal.PtrToString((nint)message, NativeStringEncoding.UTF8)
+            );
         }
 
         private readonly WebGPU _wgpu;
@@ -57,7 +71,7 @@ namespace WgpuWrappersSilk.Net
             }
         }
 
-        public BindGroupLayoutPtr CreateBindGroupLayout(BindGroupLayoutPtr bindGroupLayout, ReadOnlySpan<BindGroupLayoutEntry> entries, string? label = null)
+        public BindGroupLayoutPtr CreateBindGroupLayout(ReadOnlySpan<BindGroupLayoutEntry> entries, string? label = null)
         {
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
 
@@ -292,6 +306,154 @@ namespace WgpuWrappersSilk.Net
             _wgpu.DeviceCreateRenderPipelineAsync(_ptr, in descriptor, new(&CreateRenderPipelineCallback), (void*)idx);
 
             return task.Task;
+        }
+
+        public SamplerPtr CreateSampler(
+            AddressMode addressModeU, AddressMode addressModeV, AddressMode addressModeW,
+            FilterMode magFilter, FilterMode minFilter, MipmapFilterMode mipmapFilter,
+            float lodMinClamp, float lodMaxClamp,
+            CompareFunction compare,
+            ushort maxAnisotropy,
+            string? label = null)
+        {
+            using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
+
+            var descriptor = new SamplerDescriptor
+            {
+                Label = marshalledLabel.Ptr,
+                AddressModeU = addressModeU,
+                AddressModeV = addressModeV,
+                AddressModeW = addressModeW,
+                MagFilter = magFilter,
+                MinFilter = minFilter,
+                MipmapFilter = mipmapFilter,
+                LodMinClamp = lodMinClamp,
+                LodMaxClamp = lodMaxClamp,
+                Compare = compare,
+                MaxAnisotropy = maxAnisotropy,
+            };
+
+            return new SamplerPtr(_wgpu, _wgpu.DeviceCreateSampler(_ptr, in descriptor));
+        }
+
+        
+
+        public ShaderModulePtr CreateShaderModuleWGSL(
+            string code,
+            ShaderModuleCompilationHint[] compilationHints, 
+            string? label = null)
+        {
+            Span<byte> bytes = new byte[Encoding.UTF8.GetByteCount(code)+1];
+            Encoding.UTF8.GetBytes(code, bytes);
+            return CreateShaderModuleWGSL(bytes, compilationHints, label);
+        }
+
+        public ShaderModulePtr CreateShaderModuleWGSL(
+            ReadOnlySpan<byte> code,
+            ShaderModuleCompilationHint[] compilationHints, 
+            string? label = null)
+        {
+            using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
+
+            int payloadBufferSize = 0;
+            for (int i = 0; i < compilationHints.Length; i++)
+                payloadBufferSize += compilationHints[i].CalculatePayloadSize();
+
+            Span<byte> payloadBuffer = stackalloc byte[payloadBufferSize];
+            var compilationHintsPtr = stackalloc WGPU.ShaderModuleCompilationHint[compilationHints.Length];
+
+            int indexPtr = 0;
+
+            for (int i = 0; i < compilationHints.Length; i++)
+                indexPtr += compilationHints[i].PackInto(ref compilationHintsPtr[i], payloadBuffer[indexPtr..]);
+
+            fixed(byte* codePtr = &code[0])
+            {
+                var wgslDescriptor = new ShaderModuleWGSLDescriptor
+                {
+                    Chain = new ChainedStruct
+                    {
+                        SType = SType.ShaderModuleWgsldescriptor
+                    },
+                    Code = codePtr,
+                };
+
+                var descriptor = new ShaderModuleDescriptor
+                {
+                    Label = marshalledLabel.Ptr,
+                    HintCount = (uint)compilationHints.Length,
+                    Hints = compilationHintsPtr,
+                    NextInChain = &wgslDescriptor.Chain
+                };
+
+                return new ShaderModulePtr(_wgpu, _wgpu.DeviceCreateShaderModule(_ptr, in descriptor));
+            }
+        }
+
+        public ShaderModulePtr CreateShaderModuleSPIRV(
+            ReadOnlySpan<byte> code,
+            ShaderModuleCompilationHint[] compilationHints,
+            string? label = null)
+        {
+            if (code.Length % 4 != 0)
+                throw new ArgumentException($"{nameof(code)} is not 32-bit aligned");
+
+            int code32Size = code.Length / 4;
+
+            fixed (byte* code32Ptr = &code[0])
+                return CreateShaderModuleSPIRV(
+                    new ReadOnlySpan<uint>(code32Ptr, code32Size), 
+                    compilationHints, label);
+        }
+
+        public ShaderModulePtr CreateShaderModuleSPIRV(
+            ReadOnlySpan<uint> code,
+            ShaderModuleCompilationHint[] compilationHints, 
+            string? label = null)
+        {
+            using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
+
+            int payloadBufferSize = 0;
+            for (int i = 0; i < compilationHints.Length; i++)
+                payloadBufferSize += compilationHints[i].CalculatePayloadSize();
+
+            Span<byte> payloadBuffer = stackalloc byte[payloadBufferSize];
+            var compilationHintsPtr = stackalloc WGPU.ShaderModuleCompilationHint[compilationHints.Length];
+
+            int indexPtr = 0;
+
+            for (int i = 0; i < compilationHints.Length; i++)
+                indexPtr += compilationHints[i].PackInto(ref compilationHintsPtr[i], payloadBuffer[indexPtr..]);
+
+            fixed(uint* codePtr = &code[0])
+            {
+                var wgslDescriptor = new ShaderModuleSPIRVDescriptor
+                {
+                    Chain = new ChainedStruct
+                    {
+                        SType = SType.ShaderModuleSpirvdescriptor
+                    },
+                    Code = codePtr,
+                    CodeSize = (uint)code.Length
+                };
+
+                var descriptor = new ShaderModuleDescriptor
+                {
+                    Label = marshalledLabel.Ptr,
+                    HintCount = (uint)compilationHints.Length,
+                    Hints = compilationHintsPtr,
+                    NextInChain = &wgslDescriptor.Chain
+                };
+
+                return new ShaderModulePtr(_wgpu, _wgpu.DeviceCreateShaderModule(_ptr, in descriptor));
+            }
+        }
+
+        public void SetUncapturedErrorCallback(ErrorCallback callback)
+        {
+            int idx = s_errorCallbacks.Count;
+            s_errorCallbacks.Add(callback);
+            _wgpu.DeviceSetUncapturedErrorCallback(_ptr, new PfnErrorCallback(&UncapturedErrorCallback), (void*)idx);
         }
     }
 }
