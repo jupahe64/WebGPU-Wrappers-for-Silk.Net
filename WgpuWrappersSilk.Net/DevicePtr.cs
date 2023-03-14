@@ -44,6 +44,48 @@ namespace WgpuWrappersSilk.Net
             );
         }
 
+        private static readonly Stack<int> s_popErrorScopeTasks_freeList = new();
+        private static readonly List<TaskCompletionSource<GPUError>> s_popErrorScopeTasks = new();
+
+        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+        private static void PopErrorScopeCallback(ErrorType type, byte* message, void* data)
+        {
+            int idx = (int)data;
+            var task = s_popErrorScopeTasks[idx];
+
+            string? messageStr = SilkMarshal.PtrToString((nint)message, NativeStringEncoding.UTF8);
+
+            if (type == ErrorType.DeviceLost)
+                task.SetException(new WGPUException($"{type} {messageStr}"));
+
+            task.SetResult(
+                type switch
+                {
+                    ErrorType.Validation => new ValidationError(messageStr ?? ""),
+                    ErrorType.OutOfMemory => new OutOfMemoryError(messageStr ?? ""),
+                    ErrorType.Internal => new InternalError(messageStr ?? ""),
+                    _ => throw new NotImplementedException()
+                }
+            );
+
+            s_popErrorScopeTasks_freeList.Push(idx);
+        }
+
+        private static int Add_PopErrorScopeTask(TaskCompletionSource<GPUError> task)
+        {
+            if (s_popErrorScopeTasks_freeList.TryPop(out int idx))
+            {
+                s_popErrorScopeTasks[idx] = task;
+            }
+            else
+            {
+                idx = s_popErrorScopeTasks.Count;
+                s_popErrorScopeTasks.Add(task);
+            }
+
+            return idx;
+        }
+
         private static readonly List<DeviceLostCallback> s_deviceLostCallbacks = new();
 
         [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -535,11 +577,12 @@ namespace WgpuWrappersSilk.Net
 
         public void PushErrorScope(ErrorFilter errorFilter) => _wgpu.DevicePushErrorScope(_ptr, errorFilter);
 
-        public void PopErrorScope(ErrorCallback callback)
+        public Task<GPUError> PopErrorScope()
         {
-            int idx = s_errorCallbacks.Count;
-            s_errorCallbacks.Add(callback);
-            _wgpu.DevicePopErrorScope(_ptr, new PfnErrorCallback(&UncapturedErrorCallback), (void*)idx);
+            var task = new TaskCompletionSource<GPUError>();
+            int idx = Add_PopErrorScopeTask(task);
+            _wgpu.DevicePopErrorScope(_ptr, new(&PopErrorScopeCallback), (void*)idx);
+            return task.Task;
         }
 
         public void SetDeviceLostCallback(DeviceLostCallback callback)
