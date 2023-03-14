@@ -1,6 +1,7 @@
 ﻿using Silk.NET.Core.Native;
 using Silk.NET.WebGPU;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -10,6 +11,7 @@ using WGPU = Silk.NET.WebGPU;
 namespace WgpuWrappersSilk.Net
 {
     public delegate void ErrorCallback(ErrorType type, string? message);
+    public delegate void DeviceLostCallback(DeviceLostReason reason, string? message);
 
     public readonly unsafe struct DevicePtr
     {
@@ -38,6 +40,17 @@ namespace WgpuWrappersSilk.Net
         {
             s_errorCallbacks[(int)data].Invoke(
                 type, 
+                SilkMarshal.PtrToString((nint)message, NativeStringEncoding.UTF8)
+            );
+        }
+
+        private static readonly List<DeviceLostCallback> s_deviceLostCallbacks = new();
+
+        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+        private static void DeviceLostCallback(DeviceLostReason reason, byte* message, void* data)
+        {
+            s_deviceLostCallbacks[(int)data].Invoke(
+                reason, 
                 SilkMarshal.PtrToString((nint)message, NativeStringEncoding.UTF8)
             );
         }
@@ -137,6 +150,7 @@ namespace WgpuWrappersSilk.Net
         {
             int idx = s_computePipelineRequests.Count;
             var task = new TaskCompletionSource<ComputePipelinePtr>();
+            s_computePipelineRequests.Add((_wgpu, task));
 
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
 
@@ -269,8 +283,9 @@ namespace WgpuWrappersSilk.Net
             string? label = null)
         {
 
-            int idx = s_computePipelineRequests.Count;
+            int idx = s_renderPipelineRequests.Count;
             var task = new TaskCompletionSource<RenderPipelinePtr>();
+            s_renderPipelineRequests.Add((_wgpu, task));
 
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
 
@@ -447,6 +462,97 @@ namespace WgpuWrappersSilk.Net
 
                 return new ShaderModulePtr(_wgpu, _wgpu.DeviceCreateShaderModule(_ptr, in descriptor));
             }
+        }
+
+        public SwapChainPtr CreateSwapChain(SurfacePtr surface, TextureUsage usage, TextureFormat format, 
+            uint width, uint height, PresentMode presentMode, string? label = null)
+        {
+            using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
+
+            var descriptor = new SwapChainDescriptor
+            {
+                Label = marshalledLabel.Ptr,
+                Usage = usage,
+                Format = format,
+                Width = width,
+                Height = height,
+                PresentMode = presentMode
+            };
+
+            return new SwapChainPtr(_wgpu, _wgpu.DeviceCreateSwapChain(_ptr, surface, in descriptor));
+        }
+
+        public TexturePtr CreateTexture(TextureUsage usage, TextureDimension dimension,
+            Extent3D size, TextureFormat format, uint mipLevelCount, uint sampleCount, 
+            ReadOnlySpan<TextureFormat> viewFormats, string? label = null)
+        {
+            using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
+
+            fixed(TextureFormat* viewFormatsPtr = &viewFormats[0])
+            {
+                var descriptor = new TextureDescriptor
+                {
+                    Label = marshalledLabel.Ptr,
+                    Usage = usage,
+                    Dimension = dimension,
+                    Size = size,
+                    Format = format,
+                    MipLevelCount = mipLevelCount,
+                    SampleCount = sampleCount,
+                    ViewFormatCount = (uint)viewFormats.Length,
+                    ViewFormats = viewFormatsPtr,
+                };
+
+                return new TexturePtr(_wgpu, _wgpu.DeviceCreateTexture(_ptr, in descriptor));
+            }
+        }
+
+        public void Destroy() => _wgpu.DeviceDestroy(_ptr);
+
+        public FeatureName[] EnumerateFeatures()
+        {
+            nuint count = _wgpu.DeviceEnumerateFeatures(_ptr, null);
+
+            Span<FeatureName> span = stackalloc FeatureName[(int)count];
+            _wgpu.DeviceEnumerateFeatures(_ptr, span);
+            var arr = new FeatureName[count];
+
+            span.CopyTo(arr);
+            return arr;
+        }
+
+        public Limits GetLimits()
+        {
+            SupportedLimits limits = default;
+            _wgpu.DeviceGetLimits(_ptr, &limits);
+            Debug.Assert(limits.NextInChain == null);
+            return limits.Limits;
+        }
+
+        public QueuePtr GetQueue() => new(_wgpu, _wgpu.DeviceGetQueue(_ptr));
+
+        public bool HasFeature(FeatureName feature) => _wgpu.DeviceHasFeature(_ptr, feature);
+
+        public void PushErrorScope(ErrorFilter errorFilter) => _wgpu.DevicePushErrorScope(_ptr, errorFilter);
+
+        public void PopErrorScope(ErrorCallback callback)
+        {
+            int idx = s_errorCallbacks.Count;
+            s_errorCallbacks.Add(callback);
+            _wgpu.DevicePopErrorScope(_ptr, new PfnErrorCallback(&UncapturedErrorCallback), (void*)idx);
+        }
+
+        public void SetDeviceLostCallback(DeviceLostCallback callback)
+        {
+            int idx = s_deviceLostCallbacks.Count;
+            s_deviceLostCallbacks.Add(callback);
+            _wgpu.DeviceSetDeviceLostCallback(_ptr, new PfnDeviceLostCallback(&DeviceLostCallback), (void*)idx);
+        }
+
+        public void SetLabel(string label)
+        {
+            using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
+            _wgpu.DeviceSetLabel(_ptr, marshalledLabel.Ptr);
         }
 
         public void SetUncapturedErrorCallback(ErrorCallback callback)

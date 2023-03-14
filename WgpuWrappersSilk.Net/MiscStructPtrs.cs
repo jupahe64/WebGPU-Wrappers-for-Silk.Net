@@ -263,6 +263,34 @@ namespace WgpuWrappersSilk.Net
        public static implicit operator Texture*(TexturePtr ptr) => ptr._ptr;
     }
 
+    public readonly unsafe struct SwapChainPtr
+    {
+       private readonly WebGPU _wgpu;
+       private readonly SwapChain* _ptr;
+
+       public SwapChainPtr(WebGPU wgpu, SwapChain* ptr)
+       {
+           _wgpu = wgpu;
+           _ptr = ptr;
+       }
+
+       public static implicit operator SwapChain*(SwapChainPtr ptr) => ptr._ptr;
+    }
+
+    public readonly unsafe struct QueuePtr
+    {
+       private readonly WebGPU _wgpu;
+       private readonly Queue* _ptr;
+
+       public QueuePtr(WebGPU wgpu, Queue* ptr)
+       {
+           _wgpu = wgpu;
+           _ptr = ptr;
+       }
+
+       public static implicit operator Queue*(QueuePtr ptr) => ptr._ptr;
+    }
+    
     // public readonly unsafe struct ComputePipelinePtr
     // {
     //    private readonly WebGPU _wgpu;
