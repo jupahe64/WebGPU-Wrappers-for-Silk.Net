@@ -1,4 +1,5 @@
-﻿using Silk.NET.WebGPU;
+﻿using Silk.NET.Core.Native;
+using Silk.NET.WebGPU;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -14,6 +15,15 @@ namespace WgpuWrappersSilk.Net
         private static void DeviceRequestCallback(RequestDeviceStatus status, Device* device, byte* message, void* data)
         {
             var (wgpu, task) = s_deviceRequests[(int)data];
+
+            if (status != RequestDeviceStatus.Success)
+            {
+                task.SetException(new WGPUException(
+                    $"{status} {SilkMarshal.PtrToString((nint)message, NativeStringEncoding.UTF8)}"));
+
+                return;
+            }
+
             task.SetResult(new DevicePtr(wgpu, device));
         }
 

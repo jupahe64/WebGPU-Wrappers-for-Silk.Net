@@ -14,6 +14,14 @@ namespace WgpuWrappersSilk.Net
         private static void AdapterRequestCallback(RequestAdapterStatus status, Adapter* adapter, byte* message, void* data)
         {
             var (wgpu, task) = s_adapterRequests[(int)data];
+
+            if (status != RequestAdapterStatus.Success)
+            {
+                task.SetException(new WGPUException(
+                    $"{status} {SilkMarshal.PtrToString((nint)message, NativeStringEncoding.UTF8)}"));
+
+                return;
+            }
             task.SetResult(new AdapterPtr(wgpu, adapter));
         }
 

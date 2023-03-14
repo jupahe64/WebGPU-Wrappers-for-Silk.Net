@@ -21,6 +21,15 @@ namespace WgpuWrappersSilk.Net
         private static void CreateComputePipelineCallback(CreatePipelineAsyncStatus status, ComputePipeline* pipeline, byte* message, void* data)
         {
             var (wgpu, task) = s_computePipelineRequests[(int)data];
+
+            if (status != CreatePipelineAsyncStatus.Success)
+            {
+                task.SetException(new WGPUException(
+                    $"{status} {SilkMarshal.PtrToString((nint)message, NativeStringEncoding.UTF8)}"));
+
+                return;
+            }
+
             task.SetResult(new ComputePipelinePtr(wgpu, pipeline));
         }
 
@@ -30,6 +39,15 @@ namespace WgpuWrappersSilk.Net
         private static void CreateRenderPipelineCallback(CreatePipelineAsyncStatus status, RenderPipeline* pipeline, byte* message, void* data)
         {
             var (wgpu, task) = s_renderPipelineRequests[(int)data];
+
+            if (status != CreatePipelineAsyncStatus.Success)
+            {
+                task.SetException(new WGPUException(
+                    $"{status} {SilkMarshal.PtrToString((nint)message, NativeStringEncoding.UTF8)}"));
+
+                return;
+            }
+
             task.SetResult(new RenderPipelinePtr(wgpu, pipeline));
         }
 
@@ -589,7 +607,7 @@ namespace WgpuWrappersSilk.Net
         {
             int idx = s_deviceLostCallbacks.Count;
             s_deviceLostCallbacks.Add(callback);
-            _wgpu.DeviceSetDeviceLostCallback(_ptr, new PfnDeviceLostCallback(&DeviceLostCallback), (void*)idx);
+            _wgpu.DeviceSetDeviceLostCallback(_ptr, new(&DeviceLostCallback), (void*)idx);
         }
 
         public void SetLabel(string label)
@@ -602,7 +620,7 @@ namespace WgpuWrappersSilk.Net
         {
             int idx = s_errorCallbacks.Count;
             s_errorCallbacks.Add(callback);
-            _wgpu.DeviceSetUncapturedErrorCallback(_ptr, new PfnErrorCallback(&UncapturedErrorCallback), (void*)idx);
+            _wgpu.DeviceSetUncapturedErrorCallback(_ptr, new(&UncapturedErrorCallback), (void*)idx);
         }
     }
 }
