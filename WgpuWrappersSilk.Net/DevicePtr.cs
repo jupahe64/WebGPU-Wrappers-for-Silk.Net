@@ -63,7 +63,7 @@ namespace WgpuWrappersSilk.Net
         }
 
         private static readonly Stack<int> s_popErrorScopeTasks_freeList = new();
-        private static readonly List<TaskCompletionSource<GPUError>> s_popErrorScopeTasks = new();
+        private static readonly List<TaskCompletionSource<GPUError?>> s_popErrorScopeTasks = new();
 
         [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         private static void PopErrorScopeCallback(ErrorType type, byte* message, void* data)
@@ -79,6 +79,7 @@ namespace WgpuWrappersSilk.Net
             task.SetResult(
                 type switch
                 {
+                    ErrorType.NoError => null,
                     ErrorType.Validation => new ValidationError(messageStr ?? ""),
                     ErrorType.OutOfMemory => new OutOfMemoryError(messageStr ?? ""),
                     ErrorType.Internal => new InternalError(messageStr ?? ""),
@@ -89,7 +90,7 @@ namespace WgpuWrappersSilk.Net
             s_popErrorScopeTasks_freeList.Push(idx);
         }
 
-        private static int Add_PopErrorScopeTask(TaskCompletionSource<GPUError> task)
+        private static int Add_PopErrorScopeTask(TaskCompletionSource<GPUError?> task)
         {
             if (s_popErrorScopeTasks_freeList.TryPop(out int idx))
             {
@@ -595,9 +596,9 @@ namespace WgpuWrappersSilk.Net
 
         public void PushErrorScope(ErrorFilter errorFilter) => _wgpu.DevicePushErrorScope(_ptr, errorFilter);
 
-        public Task<GPUError> PopErrorScope()
+        public Task<GPUError?> PopErrorScope()
         {
-            var task = new TaskCompletionSource<GPUError>();
+            var task = new TaskCompletionSource<GPUError?>();
             int idx = Add_PopErrorScopeTask(task);
             _wgpu.DevicePopErrorScope(_ptr, new(&PopErrorScopeCallback), (void*)idx);
             return task.Task;
