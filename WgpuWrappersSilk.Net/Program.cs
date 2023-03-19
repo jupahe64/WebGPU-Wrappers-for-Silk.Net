@@ -13,6 +13,11 @@ namespace WgpuWrappersSilk.Net
 {
     internal class Program
     {
+        internal delegate void dawnProcSetProcs(IntPtr procs);
+
+        [DllImport("dawn_native", EntryPoint = "?GetProcs@native@dawn@@YAAEBUDawnProcTable@@XZ")]
+        public static extern IntPtr GetProcs();
+
         private static IWindow? window;
 
         static unsafe void Main(string[] args)
@@ -30,6 +35,13 @@ namespace WgpuWrappersSilk.Net
         private async static void W_Load()
         {
             var wgpu = WebGPU.GetApi();
+            var dawnProcSetProcs = Marshal.GetDelegateForFunctionPointer<dawnProcSetProcs>(
+                wgpu.Context.GetProcAddress("dawnProcSetProcs")
+            );
+
+            var procs = GetProcs();
+
+            dawnProcSetProcs(procs);
 
             var instance = InstancePtr.Create(wgpu, default);
 
@@ -66,10 +78,12 @@ namespace WgpuWrappersSilk.Net
                 vertexUniformsLayout
             });
 
-            device.SetUncapturedErrorCallback((type, m) =>
-            {
-                Debugger.Break();
-            });
+            //device.SetUncapturedErrorCallback((type, m) =>
+            //{
+            //    Debugger.Break();
+            //});
+
+            device.PushErrorScope(ErrorFilter.Validation);
 
             var shaderModule = device.CreateShaderModuleWGSL(File.ReadAllBytes("shader.wgsl"),
                 new ShaderModuleCompilationHint[]
@@ -163,6 +177,8 @@ namespace WgpuWrappersSilk.Net
                     }
                 }
             );
+
+            var error = await device.PopErrorScope();
 
             Debugger.Break();
         }

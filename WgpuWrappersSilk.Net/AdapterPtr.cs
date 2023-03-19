@@ -4,17 +4,18 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using WgpuWrappersSilk.Net.Utils;
 
 namespace WgpuWrappersSilk.Net
 {
     public readonly unsafe struct AdapterPtr
     {
-        private static readonly List<(WebGPU, TaskCompletionSource<DevicePtr>)> s_deviceRequests = new();
+        private static readonly RentalStorage<(WebGPU, TaskCompletionSource<DevicePtr>)> s_deviceRequests = new();
 
         [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         private static void DeviceRequestCallback(RequestDeviceStatus status, Device* device, byte* message, void* data)
         {
-            var (wgpu, task) = s_deviceRequests[(int)data];
+            var (wgpu, task) = s_deviceRequests.GetAndReturn((int)data);
 
             if (status != RequestDeviceStatus.Success)
             {
@@ -73,10 +74,9 @@ namespace WgpuWrappersSilk.Net
 
         public Task<DevicePtr> RequestDevice(in DeviceDescriptor descriptor)
         {
-            int idx = s_deviceRequests.Count;
             var task = new TaskCompletionSource<DevicePtr>();
-            s_deviceRequests.Add((_wgpu, task));
-            _wgpu.AdapterRequestDevice(_ptr, in descriptor, new(&DeviceRequestCallback), (void*)idx);
+            int key = s_deviceRequests.Rent((_wgpu, task));
+            _wgpu.AdapterRequestDevice(_ptr, in descriptor, new(&DeviceRequestCallback), (void*)key);
             return task.Task;
         }
     }

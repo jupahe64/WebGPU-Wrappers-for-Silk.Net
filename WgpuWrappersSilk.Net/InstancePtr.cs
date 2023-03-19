@@ -3,17 +3,18 @@ using Silk.NET.WebGPU;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using WgpuWrappersSilk.Net.Utils;
 
 namespace WgpuWrappersSilk.Net
 {
     public unsafe struct InstancePtr
     {
-        private static readonly List<(WebGPU, TaskCompletionSource<AdapterPtr>)> s_adapterRequests = new();
+        private static readonly RentalStorage<(WebGPU, TaskCompletionSource<AdapterPtr>)> s_adapterRequests = new();
 
         [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         private static void AdapterRequestCallback(RequestAdapterStatus status, Adapter* adapter, byte* message, void* data)
         {
-            var (wgpu, task) = s_adapterRequests[(int)data];
+            var (wgpu, task) = s_adapterRequests.GetAndReturn((int)data);
 
             if (status != RequestAdapterStatus.Success)
             {
@@ -38,16 +39,6 @@ namespace WgpuWrappersSilk.Net
         }
 
         public static implicit operator Instance*(InstancePtr ptr) => ptr._ptr;
-
-        public Task<AdapterPtr> RequestAdapter(in RequestAdapterOptions options)
-        {
-            int idx = s_adapterRequests.Count;
-            var task = new TaskCompletionSource<AdapterPtr>();
-            s_adapterRequests.Add((_wgpu, task));
-            _wgpu.InstanceRequestAdapter(_ptr, in options, new(&AdapterRequestCallback), (void*)idx);
-
-            return task.Task;
-        }
 
         #region CreateSurface
         public SurfacePtr CreateSurfaceFromAndroidNativeWindow(IntPtr nativeWindow, string? label = null)
@@ -164,6 +155,15 @@ namespace WgpuWrappersSilk.Net
         public void ProcessEvents()
         {
             _wgpu.InstanceProcessEvents(_ptr);
+        }
+
+        public Task<AdapterPtr> RequestAdapter(in RequestAdapterOptions options)
+        {
+            var task = new TaskCompletionSource<AdapterPtr>();
+            int key = s_adapterRequests.Rent((_wgpu, task));
+            _wgpu.InstanceRequestAdapter(_ptr, in options, new(&AdapterRequestCallback), (void*)key);
+
+            return task.Task;
         }
     }
 }

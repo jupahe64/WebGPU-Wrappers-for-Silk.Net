@@ -330,4 +330,178 @@ namespace WgpuWrappersSilk.Net
             return payloadSize;
         }
     }
+
+    public unsafe struct ImageCopyBuffer
+    {
+        public BufferPtr Buffer;
+        
+        public TextureDataLayout Layout;
+
+        public ImageCopyBuffer(BufferPtr buffer, TextureDataLayout layout)
+        {
+            Buffer = buffer;
+            Layout = layout;
+        }
+
+        internal WGPU.ImageCopyBuffer Pack()
+        {
+            return new WGPU.ImageCopyBuffer 
+            {
+                Buffer = Buffer,
+                Layout = Layout,
+            };
+        }
+    }
+
+    public unsafe struct ImageCopyTexture
+    {
+        public TexturePtr Texture;
+
+        public uint MipLevel;
+
+        public Origin3D Origin;
+
+        public TextureAspect Aspect;
+
+        public ImageCopyTexture(TexturePtr texture, uint mipLevel, Origin3D origin, TextureAspect aspect)
+        {
+            Texture = texture;
+            MipLevel = mipLevel;
+            Origin = origin;
+            Aspect = aspect;
+        }
+
+        internal WGPU.ImageCopyTexture Pack()
+        {
+            return new WGPU.ImageCopyTexture 
+            {
+                Texture = Texture,
+                MipLevel = MipLevel,
+                Origin = Origin,
+                Aspect = Aspect,
+            };
+        }
+    }
+
+    public unsafe struct ComputePassTimestampWrite
+    {
+        public ComputePassTimestampLocation Location;
+        public uint QueryIndex;
+        public QuerySetPtr QuerySet;
+
+        public ComputePassTimestampWrite(ComputePassTimestampLocation location, uint queryIndex, QuerySetPtr querySet)
+        {
+            Location = location;
+            QueryIndex = queryIndex;
+            QuerySet = querySet;
+        }
+
+        internal WGPU.ComputePassTimestampWrite Pack()
+        {
+            return new WGPU.ComputePassTimestampWrite
+            {
+                Location = Location,
+                QueryIndex = QueryIndex,
+                QuerySet = QuerySet
+            };
+        }
+    }
+
+    public unsafe struct RenderPassTimestampWrite
+    {
+        public RenderPassTimestampLocation Location;
+        public uint QueryIndex;
+        public QuerySetPtr QuerySet;
+
+        public RenderPassTimestampWrite(RenderPassTimestampLocation location, uint queryIndex, QuerySetPtr querySet)
+        {
+            Location = location;
+            QueryIndex = queryIndex;
+            QuerySet = querySet;
+        }
+
+        internal WGPU.RenderPassTimestampWrite Pack()
+        {
+            return new WGPU.RenderPassTimestampWrite
+            {
+                Location = Location,
+                QueryIndex = QueryIndex,
+                QuerySet = QuerySet
+            };
+        }
+    }
+
+    public unsafe partial struct RenderPassColorAttachment
+    {
+        public TextureViewPtr View;
+        public TextureViewPtr ResolveTarget;
+        public LoadOp LoadOp;
+        public StoreOp StoreOp;
+        public Color ClearValue;
+
+        public RenderPassColorAttachment(TextureViewPtr view, TextureViewPtr resolveTarget, LoadOp loadOp, StoreOp storeOp, Color clearValue)
+        {
+            View = view;
+            ResolveTarget = resolveTarget;
+            LoadOp = loadOp;
+            StoreOp = storeOp;
+            ClearValue = clearValue;
+        }
+
+        internal WGPU.RenderPassColorAttachment Pack()
+        {
+            return new WGPU.RenderPassColorAttachment
+            {
+                View = View,
+                ResolveTarget = ResolveTarget,
+                LoadOp = LoadOp,
+                StoreOp = StoreOp,
+                ClearValue = ClearValue
+            };
+        }
+    }
+
+    public unsafe partial struct RenderPassDepthStencilAttachment
+    {       
+        public TextureViewPtr View;
+        public LoadOp DepthLoadOp;
+        public StoreOp DepthStoreOp;
+        public float DepthClearValue;
+        public bool DepthReadOnly;
+        public LoadOp StencilLoadOp;
+        public StoreOp StencilStoreOp;
+        public uint StencilClearValue;
+        public bool StencilReadOnly;
+
+        public RenderPassDepthStencilAttachment(TextureViewPtr view, 
+            LoadOp depthLoadOp, StoreOp depthStoreOp, float depthClearValue, bool depthReadOnly, 
+            LoadOp stencilLoadOp, StoreOp stencilStoreOp, uint stencilClearValue, bool stencilReadOnly)
+        {
+            View = view;
+            DepthLoadOp = depthLoadOp;
+            DepthStoreOp = depthStoreOp;
+            DepthClearValue = depthClearValue;
+            DepthReadOnly = depthReadOnly;
+            StencilLoadOp = stencilLoadOp;
+            StencilStoreOp = stencilStoreOp;
+            StencilClearValue = stencilClearValue;
+            StencilReadOnly = stencilReadOnly;
+        }
+
+        internal WGPU.RenderPassDepthStencilAttachment Pack()
+        {
+            return new WGPU.RenderPassDepthStencilAttachment
+            {
+                View = View,
+                DepthLoadOp = DepthLoadOp,
+                DepthStoreOp = DepthStoreOp,
+                DepthClearValue = DepthClearValue,
+                DepthReadOnly = DepthReadOnly,
+                StencilLoadOp = StencilLoadOp,
+                StencilStoreOp = StencilStoreOp,
+                StencilClearValue = StencilClearValue,
+                StencilReadOnly = StencilReadOnly
+            };
+        }
+    }
 }
