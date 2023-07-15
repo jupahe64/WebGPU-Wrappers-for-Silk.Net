@@ -1,17 +1,14 @@
 using Silk.NET.Core.Native;
-using Silk.NET.WebGPU;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using WgpuWrappersSilk.Net.Utils;
+using System.Threading.Tasks;
+using Silk.NET.WebGPU.Safe.Utils;
 using WGPU = Silk.NET.WebGPU;
 
-namespace WgpuWrappersSilk.Net
+namespace Silk.NET.WebGPU.Safe
 {
     public readonly unsafe struct ShaderModulePtr
     {
         private static readonly RentalStorage<TaskCompletionSource<CompilationInfo>> s_getCompilationInfoTasks = new();
 
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         private static void GetCompilationInfoCallback(CompilationInfoRequestStatus status, WGPU.CompilationInfo* info, void* data)
         {
             var task = s_getCompilationInfoTasks.GetAndReturn((int)data);
@@ -21,6 +18,9 @@ namespace WgpuWrappersSilk.Net
 
             task.SetResult(CompilationInfo.UnpackFrom(info));
         }
+
+        private static readonly PfnCompilationInfoCallback 
+            s_GetCompilationInfoCallback = new(GetCompilationInfoCallback);
 
         private readonly WebGPU _wgpu;
         private readonly ShaderModule* _ptr;
@@ -38,7 +38,7 @@ namespace WgpuWrappersSilk.Net
             var task = new TaskCompletionSource<CompilationInfo>();
             var key = s_getCompilationInfoTasks.Rent(task);
 
-            _wgpu.ShaderModuleGetCompilationInfo(_ptr, new(&GetCompilationInfoCallback), (void*)key);
+            _wgpu.ShaderModuleGetCompilationInfo(_ptr, s_GetCompilationInfoCallback, (void*)key);
 
             return task.Task;
         }

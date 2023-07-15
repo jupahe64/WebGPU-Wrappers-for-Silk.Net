@@ -1,13 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Silk.NET.Core.Native;
-using Silk.NET.WebGPU;
 using WGPU = Silk.NET.WebGPU;
 
-namespace WgpuWrappersSilk.Net
+namespace Silk.NET.WebGPU.Safe
 {
     public unsafe struct CompilationInfo
     {
@@ -17,7 +11,7 @@ namespace WgpuWrappersSilk.Net
         {
             var messages = new CompilationMessage[native->MessageCount];
 
-            for (int i = 0; i < native->MessageCount; i++)
+            for (uint i = 0; i < native->MessageCount; i++)
             {
                 messages[i] = new CompilationMessage
                 {

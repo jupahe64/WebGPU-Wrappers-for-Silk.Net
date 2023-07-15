@@ -1,18 +1,16 @@
-﻿using Silk.NET.Core.Native;
-using Silk.NET.WebGPU;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using WgpuWrappersSilk.Net.Utils;
+using System;
+using Silk.NET.Core.Native;
+using System.Threading.Tasks;
+using Silk.NET.WebGPU.Safe.Utils;
 using WGPU = Silk.NET.WebGPU;
 
-namespace WgpuWrappersSilk.Net
+namespace Silk.NET.WebGPU.Safe
 {
     public readonly unsafe struct QueuePtr
     {
-        private static RentalStorage<TaskCompletionSource> s_onSubmittedWorkTasks = new();
+        private record struct Void();
+        private static RentalStorage<TaskCompletionSource<Void>> s_onSubmittedWorkTasks = new();
 
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         private static void OnSubmittedWorkDoneCallback(QueueWorkDoneStatus status, void* data)
         {
             var task = s_onSubmittedWorkTasks.GetAndReturn((int)data);
@@ -24,8 +22,11 @@ namespace WgpuWrappersSilk.Net
                 return;
             }
 
-            task.SetResult();
+            task.SetResult(default);
         }
+
+        private static readonly PfnQueueWorkDoneCallback 
+            s_OnSubmittedWorkDoneCallback = new(OnSubmittedWorkDoneCallback);
 
         private readonly WebGPU _wgpu;
         private readonly Queue* _ptr;
@@ -40,9 +41,9 @@ namespace WgpuWrappersSilk.Net
 
         public Task OnSubmittedWorkDone()
         {
-            var task = new TaskCompletionSource();
+            var task = new TaskCompletionSource<Void>();
             int key = s_onSubmittedWorkTasks.Rent(task);
-            _wgpu.QueueOnSubmittedWorkDone(_ptr, new(&OnSubmittedWorkDoneCallback), (void*)key);
+            _wgpu.QueueOnSubmittedWorkDone(_ptr, s_OnSubmittedWorkDoneCallback, (void*)key);
             return task.Task;
         }
 

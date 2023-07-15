@@ -1,7 +1,7 @@
-﻿using Silk.NET.Core.Native;
-using Silk.NET.WebGPU;
+﻿using System;
+using Silk.NET.Core.Native;
 
-namespace WgpuWrappersSilk.Net
+namespace Silk.NET.WebGPU.Safe
 {
     public readonly unsafe struct RenderPassEncoderPtr
     {

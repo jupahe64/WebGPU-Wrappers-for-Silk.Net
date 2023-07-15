@@ -1,18 +1,7 @@
-﻿using Microsoft.VisualBasic;
-using Silk.NET.Core.Attributes;
+﻿using System;
 using Silk.NET.Core.Native;
-using Silk.NET.WebGPU;
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Reflection.Emit;
-using System.Security.Cryptography;
-using System.Threading.Tasks;
-using static System.Net.Mime.MediaTypeNames;
-using Buffer = Silk.NET.WebGPU.Buffer;
 
-namespace WgpuWrappersSilk.Net
+namespace Silk.NET.WebGPU.Safe
 {
     internal readonly unsafe struct MarshalledString : IDisposable
     {

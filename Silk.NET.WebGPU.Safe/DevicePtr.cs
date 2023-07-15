@@ -1,24 +1,22 @@
-﻿using Silk.NET.Core.Native;
-using Silk.NET.WebGPU;
+using System;
+using Silk.NET.Core.Native;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using WgpuWrappersSilk.Net.Utils;
+using Silk.NET.WebGPU.Safe.Utils;
 using WGPU = Silk.NET.WebGPU;
 
-namespace WgpuWrappersSilk.Net
+namespace Silk.NET.WebGPU.Safe
 {
     public delegate void ErrorCallback(ErrorType type, string? message);
-    public delegate void DeviceLostCallback(DeviceLostReason reason, string? message);
 
     public readonly unsafe struct DevicePtr
     {
         private static readonly RentalStorage<(WebGPU, TaskCompletionSource<ComputePipelinePtr>)> s_computePipelineRequests = new();
 
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         private static void CreateComputePipelineCallback(CreatePipelineAsyncStatus status, ComputePipeline* pipeline, byte* message, void* data)
         {
             var (wgpu, task) = s_computePipelineRequests.GetAndReturn((int)data);
@@ -36,7 +34,6 @@ namespace WgpuWrappersSilk.Net
 
         private static readonly RentalStorage<(WebGPU, TaskCompletionSource<RenderPipelinePtr>)> s_renderPipelineRequests = new();
 
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         private static void CreateRenderPipelineCallback(CreatePipelineAsyncStatus status, RenderPipeline* pipeline, byte* message, void* data)
         {
             var (wgpu, task) = s_renderPipelineRequests.GetAndReturn((int)data);
@@ -54,7 +51,6 @@ namespace WgpuWrappersSilk.Net
 
         private static readonly List<ErrorCallback> s_uncapturedErrorCallbacks = new();
 
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         private static void UncapturedErrorCallback(ErrorType type, byte* message, void* data)
         {
             s_uncapturedErrorCallbacks[(int)data].Invoke(
@@ -65,7 +61,6 @@ namespace WgpuWrappersSilk.Net
 
         private static readonly RentalStorage<TaskCompletionSource<GPUError?>> s_popErrorScopeTasks = new();
 
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         private static void PopErrorScopeCallback(ErrorType type, byte* message, void* data)
         {
             var task = s_popErrorScopeTasks.GetAndReturn((int)data);
@@ -82,21 +77,25 @@ namespace WgpuWrappersSilk.Net
                     ErrorType.Validation => new ValidationError(messageStr ?? ""),
                     ErrorType.OutOfMemory => new OutOfMemoryError(messageStr ?? ""),
                     ErrorType.Internal => new InternalError(messageStr ?? ""),
+                    ErrorType.DeviceLost => new DeviceLostError(messageStr ?? ""),
+                    ErrorType.Unknown => new UnkownError(messageStr ?? ""),
                     _ => throw new NotImplementedException()
                 }
             );
         }
 
-        private static readonly List<DeviceLostCallback> s_deviceLostCallbacks = new();
+        private static readonly PfnCreateComputePipelineAsyncCallback 
+            s_CreateComputePipelineCallback = new(CreateComputePipelineCallback);
+        private static readonly PfnCreateRenderPipelineAsyncCallback 
+            s_CreateRenderPipelineCallback = new(CreateRenderPipelineCallback);
+        private static readonly PfnErrorCallback 
+            s_UncapturedErrorCallback = new(UncapturedErrorCallback);
+        private static readonly PfnErrorCallback 
+            s_PopErrorScopeCallback = new(PopErrorScopeCallback);
 
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-        private static void DeviceLostCallback(DeviceLostReason reason, byte* message, void* data)
-        {
-            s_deviceLostCallbacks[(int)data].Invoke(
-                reason, 
-                SilkMarshal.PtrToString((nint)message, NativeStringEncoding.UTF8)
-            );
-        }
+
+        private static readonly delegate*<ErrorType, byte*, void*, void>
+            FuncPtr_PopErrorScopeCallback = &PopErrorScopeCallback;
 
         private readonly WebGPU _wgpu;
         private readonly Device* _ptr;
@@ -205,7 +204,7 @@ namespace WgpuWrappersSilk.Net
             Span<byte> span = stackalloc byte[stage.CalculatePayloadSize()];
             stage.PackInto(ref descriptor.Compute, span);
 
-            _wgpu.DeviceCreateComputePipelineAsync(_ptr, in descriptor, new(&CreateComputePipelineCallback), (void*)key);
+            _wgpu.DeviceCreateComputePipelineAsync(_ptr, in descriptor, s_CreateComputePipelineCallback, (void*)key);
 
             return task.Task;
         }
@@ -307,7 +306,7 @@ namespace WgpuWrappersSilk.Net
                 Layout = layout,
                 Vertex = vs,
                 Primitive = primitive,
-                DepthStencil = &ds,
+                DepthStencil = depthStencil==null ? null : &ds,
                 Multisample = multisample,
                 Fragment = fsPtr
             };
@@ -358,7 +357,7 @@ namespace WgpuWrappersSilk.Net
                 Fragment = fsPtr
             };
 
-            _wgpu.DeviceCreateRenderPipelineAsync(_ptr, in descriptor, new(&CreateRenderPipelineCallback), (void*)key);
+            _wgpu.DeviceCreateRenderPipelineAsync(_ptr, in descriptor, s_CreateRenderPipelineCallback, (void*)key);
 
             return task.Task;
         }
@@ -398,8 +397,8 @@ namespace WgpuWrappersSilk.Net
             ShaderModuleCompilationHint[] compilationHints, 
             string? label = null)
         {
-            Span<byte> bytes = new byte[Encoding.UTF8.GetByteCount(code)+1];
-            Encoding.UTF8.GetBytes(code, bytes);
+            Span<byte> bytes = new byte[SilkMarshal.GetMaxSizeOf(code, NativeStringEncoding.UTF8)];
+            SilkMarshal.StringIntoSpan(code, bytes, NativeStringEncoding.UTF8);
             return CreateShaderModuleWGSL(bytes, compilationHints, label);
         }
 
@@ -428,7 +427,7 @@ namespace WgpuWrappersSilk.Net
                 {
                     Chain = new ChainedStruct
                     {
-                        SType = SType.ShaderModuleWgsldescriptor
+                        SType = SType.ShaderModuleWgslDescriptor
                     },
                     Code = codePtr,
                 };
@@ -486,7 +485,7 @@ namespace WgpuWrappersSilk.Net
                 {
                     Chain = new ChainedStruct
                     {
-                        SType = SType.ShaderModuleSpirvdescriptor
+                        SType = SType.ShaderModuleSpirvDescriptor
                     },
                     Code = codePtr,
                     CodeSize = (uint)code.Length
@@ -577,18 +576,11 @@ namespace WgpuWrappersSilk.Net
         {
             var task = new TaskCompletionSource<GPUError?>();
             int key = s_popErrorScopeTasks.Rent(task);
-            _wgpu.DevicePopErrorScope(_ptr, new(&PopErrorScopeCallback), (void*)key);
+            _wgpu.DevicePopErrorScope(_ptr, s_PopErrorScopeCallback, (void*)key);
             return task.Task;
         }
 
         public void PushErrorScope(ErrorFilter errorFilter) => _wgpu.DevicePushErrorScope(_ptr, errorFilter);
-
-        public void SetDeviceLostCallback(DeviceLostCallback callback)
-        {
-            int idx = s_deviceLostCallbacks.Count;
-            s_deviceLostCallbacks.Add(callback);
-            _wgpu.DeviceSetDeviceLostCallback(_ptr, new(&DeviceLostCallback), (void*)idx);
-        }
 
         public void SetLabel(string label)
         {
@@ -600,7 +592,7 @@ namespace WgpuWrappersSilk.Net
         {
             int idx = s_uncapturedErrorCallbacks.Count;
             s_uncapturedErrorCallbacks.Add(callback);
-            _wgpu.DeviceSetUncapturedErrorCallback(_ptr, new(&UncapturedErrorCallback), (void*)idx);
+            _wgpu.DeviceSetUncapturedErrorCallback(_ptr, s_UncapturedErrorCallback, (void*)idx);
         }
     }
 }

@@ -1,18 +1,15 @@
-﻿using Silk.NET.Core.Native;
-using Silk.NET.WebGPU;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using WgpuWrappersSilk.Net.Utils;
-using Buffer = Silk.NET.WebGPU.Buffer;
-using WGPU = Silk.NET.WebGPU;
+using System;
+using Silk.NET.Core.Native;
+using System.Threading.Tasks;
+using Silk.NET.WebGPU.Safe.Utils;
 
-namespace WgpuWrappersSilk.Net
+namespace Silk.NET.WebGPU.Safe
 {
     public readonly unsafe struct BufferPtr
     {
-        private static readonly RentalStorage<TaskCompletionSource> s_bufferMapTasks = new();
+        private record struct Void();
+        private static readonly RentalStorage<TaskCompletionSource<Void>> s_bufferMapTasks = new();
 
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         private static void BufferMapAsyncCallback(BufferMapAsyncStatus status, void* data)
         {
             var task = s_bufferMapTasks.GetAndReturn((int)data);
@@ -20,8 +17,11 @@ namespace WgpuWrappersSilk.Net
             if (status != BufferMapAsyncStatus.Success)
                 task.SetException(new WGPUException(status.ToString()));
 
-            task.SetResult();
+            task.SetResult(default);
         }
+
+        private static readonly PfnBufferMapCallback 
+            s_BufferMapAsyncCallback = new(BufferMapAsyncCallback);
 
         private readonly WebGPU _wgpu;
         private readonly Buffer* _ptr;
@@ -54,10 +54,10 @@ namespace WgpuWrappersSilk.Net
 
         public Task MapAsync(MapMode mode, nuint offset, nuint size)
         {
-            var task = new TaskCompletionSource();
+            var task = new TaskCompletionSource<Void>();
             var key = s_bufferMapTasks.Rent(task);
 
-            _wgpu.BufferMapAsync(_ptr, mode, offset, size, new(&BufferMapAsyncCallback), (void*)key);
+            _wgpu.BufferMapAsync(_ptr, mode, offset, size, s_BufferMapAsyncCallback, (void*)key);
 
             return task.Task;
         }

@@ -1,17 +1,23 @@
-﻿using Silk.NET.Core.Native;
-using Silk.NET.WebGPU;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using WgpuWrappersSilk.Net.Utils;
+using System;
+using Silk.NET.Core.Native;
+using System.Threading.Tasks;
+using Silk.NET.WebGPU.Safe.Utils;
+using System.Dynamic;
 
-namespace WgpuWrappersSilk.Net
+namespace Silk.NET.WebGPU.Safe
 {
+    public static class WebGPUExtensions
+    {
+        public static unsafe InstancePtr CreateInstance(this WebGPU wgpu)
+        {
+            return new(wgpu, wgpu.CreateInstance(new InstanceDescriptor()));
+        }
+    }
+
     public unsafe struct InstancePtr
     {
         private static readonly RentalStorage<(WebGPU, TaskCompletionSource<AdapterPtr>)> s_adapterRequests = new();
 
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
         private static void AdapterRequestCallback(RequestAdapterStatus status, Adapter* adapter, byte* message, void* data)
         {
             var (wgpu, task) = s_adapterRequests.GetAndReturn((int)data);
@@ -26,8 +32,8 @@ namespace WgpuWrappersSilk.Net
             task.SetResult(new AdapterPtr(wgpu, adapter));
         }
 
-        public static InstancePtr Create(WebGPU wgpu, in InstanceDescriptor descriptor) 
-            => new(wgpu, wgpu.CreateInstance(in descriptor));
+        private readonly PfnRequestAdapterCallback
+            s_AdapterRequestCallback = new(AdapterRequestCallback);
 
         private readonly WebGPU _wgpu;
         private readonly Instance* _ptr;
@@ -62,7 +68,7 @@ namespace WgpuWrappersSilk.Net
 
             var descriptor = new SurfaceDescriptorFromCanvasHTMLSelector
             {
-                Chain = new ChainedStruct(sType: SType.SurfaceDescriptorFromCanvasHtmlselector),
+                Chain = new ChainedStruct(sType: SType.SurfaceDescriptorFromCanvasHtmlSelector),
                 Selector = marshalledSelector.Ptr
             };
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
@@ -161,7 +167,7 @@ namespace WgpuWrappersSilk.Net
         {
             var task = new TaskCompletionSource<AdapterPtr>();
             int key = s_adapterRequests.Rent((_wgpu, task));
-            _wgpu.InstanceRequestAdapter(_ptr, in options, new(&AdapterRequestCallback), (void*)key);
+            _wgpu.InstanceRequestAdapter(_ptr, in options, s_AdapterRequestCallback, (void*)key);
 
             return task.Task;
         }

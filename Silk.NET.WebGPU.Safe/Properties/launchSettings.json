@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "WgpuWrappersSilk.Net": {
+    "Silk.NET.WebGPU.Wrappers": {
       "commandName": "Project",
       "nativeDebugging": true
     }

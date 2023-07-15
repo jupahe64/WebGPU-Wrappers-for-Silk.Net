@@ -1,8 +1,9 @@
-﻿using Silk.NET.WebGPU;
+using System;
 using System.Text;
+using Silk.NET.Core.Native;
 using WGPU = Silk.NET.WebGPU;
 
-namespace WgpuWrappersSilk.Net
+namespace Silk.NET.WebGPU.Safe
 {
     public unsafe struct ProgrammableStage
     {
@@ -20,11 +21,11 @@ namespace WgpuWrappersSilk.Net
         
         internal int CalculatePayloadSize()
         {
-            int size = Encoding.UTF8.GetByteCount(EntryPoint)+1;
+            int size = SilkMarshal.GetMaxSizeOf(EntryPoint, NativeStringEncoding.UTF8)+1;
             size += sizeof(ConstantEntry) * Constants.Length;
             for (int i = 0; i < Constants.Length; i++)
             {
-                size += Encoding.UTF8.GetByteCount(Constants[i].key)+1;
+                size += SilkMarshal.GetMaxSizeOf(Constants[i].key, NativeStringEncoding.UTF8);
             }
             return size;
         }
@@ -33,7 +34,7 @@ namespace WgpuWrappersSilk.Net
         {
             int payloadSize;
 
-            fixed(byte* startPtr = &payloadBuffer[0])
+            fixed(byte* startPtr = payloadBuffer)
             {
                 var ptr = startPtr;
 
@@ -45,12 +46,16 @@ namespace WgpuWrappersSilk.Net
                 baseStruct.Constants = constants;
 
                 baseStruct.EntryPoint = ptr;
-                ptr += Encoding.UTF8.GetBytes(EntryPoint, payloadBuffer[(int)(ptr - startPtr)..])+1;
+                
+                ptr += SilkMarshal.StringIntoSpan(EntryPoint, payloadBuffer[(int) (ptr - startPtr)..], 
+                    NativeStringEncoding.UTF8);
+                
 
                 for (int i = 0; i < Constants.Length; i++)
                 {
                     constants[i].Key = ptr;
-                    ptr += Encoding.UTF8.GetBytes(Constants[i].key, payloadBuffer[(int)(ptr - startPtr)..])+1;
+                    ptr += SilkMarshal.StringIntoSpan(Constants[i].key, payloadBuffer[(int)(ptr - startPtr)..], 
+                        NativeStringEncoding.UTF8);
 
                     constants[i].Value = Constants[i].value;
                 }
@@ -79,10 +84,10 @@ namespace WgpuWrappersSilk.Net
 
         internal int CalculatePayloadSize()
         {
-            int size = Encoding.UTF8.GetByteCount(EntryPoint)+1;
+            int size = SilkMarshal.GetMaxSizeOf(EntryPoint, NativeStringEncoding.UTF8);
             size += sizeof(ConstantEntry) * Constants.Length;
             for (int i = 0; i < Constants.Length; i++)
-                size += Encoding.UTF8.GetByteCount(Constants[i].key)+1;
+                size += SilkMarshal.GetMaxSizeOf(Constants[i].key, NativeStringEncoding.UTF8);
 
             size += sizeof(WGPU.VertexBufferLayout) * Buffers.Length;
             for (int i = 0; i < Buffers.Length; i++)
@@ -95,7 +100,7 @@ namespace WgpuWrappersSilk.Net
         {
             int payloadSize;
 
-            fixed(byte* startPtr = &payloadBuffer[0])
+            fixed(byte* startPtr = payloadBuffer)
             {
                 var ptr = startPtr;
 
@@ -112,12 +117,14 @@ namespace WgpuWrappersSilk.Net
                 baseStruct.Buffers = buffers;
 
                 baseStruct.EntryPoint = ptr;
-                ptr += Encoding.UTF8.GetBytes(EntryPoint, payloadBuffer[(int)(ptr - startPtr)..])+1;
+                ptr += SilkMarshal.StringIntoSpan(EntryPoint, payloadBuffer[(int)(ptr - startPtr)..], 
+                    NativeStringEncoding.UTF8);
 
                 for (int i = 0; i < Constants.Length; i++)
                 {
                     constants[i].Key = ptr;
-                    ptr += Encoding.UTF8.GetBytes(Constants[i].key, payloadBuffer[(int)(ptr - startPtr)..])+1;
+                    ptr += SilkMarshal.StringIntoSpan(Constants[i].key, payloadBuffer[(int)(ptr - startPtr)..], 
+                        NativeStringEncoding.UTF8);
 
                     constants[i].Value = Constants[i].value;
                 }
@@ -156,7 +163,7 @@ namespace WgpuWrappersSilk.Net
         {
             int payloadSize;
 
-            fixed(byte* startPtr = &payloadBuffer[0])
+            fixed(byte* startPtr = payloadBuffer)
             {
                 var ptr = startPtr;
 
@@ -196,10 +203,10 @@ namespace WgpuWrappersSilk.Net
 
         internal int CalculatePayloadSize()
         {
-            int size = Encoding.UTF8.GetByteCount(EntryPoint)+1;
+            int size = SilkMarshal.GetMaxSizeOf(EntryPoint, NativeStringEncoding.UTF8);
             size += sizeof(ConstantEntry) * Constants.Length;
             for (int i = 0; i < Constants.Length; i++)
-                size += Encoding.UTF8.GetByteCount(Constants[i].key)+1;
+                size += SilkMarshal.GetMaxSizeOf(Constants[i].key, NativeStringEncoding.UTF8);
 
             size += sizeof(WGPU.ColorTargetState) * ColorTargets.Length;
             for (int i = 0; i < ColorTargets.Length; i++)
@@ -212,7 +219,7 @@ namespace WgpuWrappersSilk.Net
         {
             int payloadSize;
 
-            fixed(byte* startPtr = &payloadBuffer[0])
+            fixed(byte* startPtr = payloadBuffer)
             {
                 var ptr = startPtr;
 
@@ -229,12 +236,14 @@ namespace WgpuWrappersSilk.Net
                 baseStruct.Targets = targets;
 
                 baseStruct.EntryPoint = ptr;
-                ptr += Encoding.UTF8.GetBytes(EntryPoint, payloadBuffer[(int)(ptr - startPtr)..])+1;
+                ptr += SilkMarshal.StringIntoSpan(EntryPoint, payloadBuffer[(int)(ptr - startPtr)..], 
+                    NativeStringEncoding.UTF8);
 
                 for (int i = 0; i < Constants.Length; i++)
                 {
                     constants[i].Key = ptr;
-                    ptr += Encoding.UTF8.GetBytes(Constants[i].key, payloadBuffer[(int)(ptr - startPtr)..])+1;
+                    ptr += SilkMarshal.StringIntoSpan(Constants[i].key, payloadBuffer[(int)(ptr - startPtr)..], 
+                        NativeStringEncoding.UTF8);
 
                     constants[i].Value = Constants[i].value;
                 }
@@ -274,7 +283,7 @@ namespace WgpuWrappersSilk.Net
         {
             int payloadSize;
 
-            fixed(byte* startPtr = &payloadBuffer[0])
+            fixed(byte* startPtr = payloadBuffer)
             {
                 var ptr = startPtr;
 
@@ -309,21 +318,22 @@ namespace WgpuWrappersSilk.Net
 
         internal int CalculatePayloadSize()
         {
-            return Encoding.UTF8.GetByteCount(EntryPoint)+1;
+            return SilkMarshal.GetMaxSizeOf(EntryPoint, NativeStringEncoding.UTF8);
         }
 
         internal int PackInto(ref WGPU.ShaderModuleCompilationHint baseStruct, Span<byte> payloadBuffer)
         {
             int payloadSize;
 
-            fixed(byte* startPtr = &payloadBuffer[0])
+            fixed(byte* startPtr = payloadBuffer)
             {
                 baseStruct.Layout = PipelineLayout;
 
                 var ptr = startPtr;
 
                 baseStruct.EntryPoint = ptr;
-                ptr += Encoding.UTF8.GetBytes(EntryPoint, payloadBuffer[(int)(ptr - startPtr)..])+1;
+                ptr += SilkMarshal.StringIntoSpan(EntryPoint, payloadBuffer[(int)(ptr - startPtr)..], 
+                    NativeStringEncoding.UTF8);
 
                 payloadSize = (int)(ptr - startPtr);
             }
@@ -434,12 +444,12 @@ namespace WgpuWrappersSilk.Net
     public unsafe partial struct RenderPassColorAttachment
     {
         public TextureViewPtr View;
-        public TextureViewPtr ResolveTarget;
+        public TextureViewPtr? ResolveTarget;
         public LoadOp LoadOp;
         public StoreOp StoreOp;
         public Color ClearValue;
 
-        public RenderPassColorAttachment(TextureViewPtr view, TextureViewPtr resolveTarget, LoadOp loadOp, StoreOp storeOp, Color clearValue)
+        public RenderPassColorAttachment(TextureViewPtr view, TextureViewPtr? resolveTarget, LoadOp loadOp, StoreOp storeOp, Color clearValue)
         {
             View = view;
             ResolveTarget = resolveTarget;
@@ -453,7 +463,7 @@ namespace WgpuWrappersSilk.Net
             return new WGPU.RenderPassColorAttachment
             {
                 View = View,
-                ResolveTarget = ResolveTarget,
+                ResolveTarget = ResolveTarget.GetValueOrDefault(),
                 LoadOp = LoadOp,
                 StoreOp = StoreOp,
                 ClearValue = ClearValue

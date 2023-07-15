@@ -1,9 +1,8 @@
-﻿using Silk.NET.Core.Native;
-using Silk.NET.WebGPU;
-using System.Reflection.Emit;
+﻿using System;
+using Silk.NET.Core.Native;
 using WGPU = Silk.NET.WebGPU;
 
-namespace WgpuWrappersSilk.Net
+namespace Silk.NET.WebGPU.Safe
 {
     public readonly unsafe struct CommandEncoderPtr
     {
@@ -40,8 +39,8 @@ namespace WgpuWrappersSilk.Net
         public RenderPassEncoderPtr BeginRenderPass(
             ReadOnlySpan<RenderPassColorAttachment> colorAttachments, 
             ReadOnlySpan<RenderPassTimestampWrite> timestampWrites, 
-            RenderPassDepthStencilAttachment depthStencilAttachment,
-            QuerySetPtr occlusionQuerySet,
+            RenderPassDepthStencilAttachment? depthStencilAttachment,
+            QuerySetPtr? occlusionQuerySet,
             string? label = null)
         {
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
@@ -51,12 +50,19 @@ namespace WgpuWrappersSilk.Net
             for (int i = 0; i < timestampWrites.Length; i++)
                 timestampWritesPtr[i] = timestampWrites[i].Pack();
 
-            var colorAttachmentsPtr = stackalloc WGPU.RenderPassColorAttachment[timestampWrites.Length];
+            var colorAttachmentsPtr = stackalloc WGPU.RenderPassColorAttachment[colorAttachments.Length];
 
             for (int i = 0; i < colorAttachments.Length; i++)
                 colorAttachmentsPtr[i] = colorAttachments[i].Pack();
 
-            var _depthStencilAttachment = depthStencilAttachment.Pack();
+            WGPU.RenderPassDepthStencilAttachment* depthStencilAttachmentPtr = null;
+
+            if(depthStencilAttachment.HasValue)
+            {
+                var tmp = depthStencilAttachment.Value.Pack();
+                depthStencilAttachmentPtr = &tmp;
+            }
+            
 
             var descriptor = new RenderPassDescriptor
             {
@@ -65,8 +71,8 @@ namespace WgpuWrappersSilk.Net
                 TimestampWrites = timestampWritesPtr,
                 ColorAttachmentCount = (uint)colorAttachments.Length,
                 ColorAttachments = colorAttachmentsPtr,
-                DepthStencilAttachment = &_depthStencilAttachment,
-                OcclusionQuerySet = occlusionQuerySet
+                DepthStencilAttachment = depthStencilAttachmentPtr,
+                OcclusionQuerySet = occlusionQuerySet.GetValueOrDefault()
                 
             };
 
