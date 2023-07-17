@@ -1,4 +1,5 @@
 ﻿using System;
+using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
 
 namespace Silk.NET.WebGPU.Safe
@@ -156,10 +157,10 @@ namespace Silk.NET.WebGPU.Safe
 
     public readonly unsafe struct PipelineLayoutPtr
     {
-        public static readonly PipelineLayoutPtr? Auto = null;
-
         private readonly WebGPU _wgpu;
         private readonly PipelineLayout* _ptr;
+
+        public static PipelineLayoutPtr? Auto => null;
 
         public PipelineLayoutPtr(WebGPU wgpu, PipelineLayout* ptr)
         {
@@ -287,6 +288,14 @@ namespace Silk.NET.WebGPU.Safe
         public void Reference() => _wgpu.SamplerReference(_ptr);
 
         public void Release() => _wgpu.SamplerRelease(_ptr);
+    }
+
+    public static class SurfaceExtension
+    {
+        public static unsafe SurfacePtr CreateWebGPUSurface(this INativeWindowSource window, WebGPU wgpu, InstancePtr instance)
+        {
+            return new(wgpu, window.CreateWebGPUSurface(wgpu, (Instance*)instance));
+        }
     }
 
     public readonly unsafe struct SurfacePtr

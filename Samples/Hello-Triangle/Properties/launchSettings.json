@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "WebGPU-Sample": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}
