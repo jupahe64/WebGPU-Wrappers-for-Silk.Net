@@ -1,5 +1,5 @@
 # WebGPU-Wrappers-for-Silk.Net
-Experimental "safe" wrappers around the unsafe Silk.NET bindings
+Handwritten "safe" wrappers around the unsafe Silk.NET bindings
 
 ## Building
 - Create your own Silk.NET nuget packages (the ones hosted on nuget haven't been updated as of the time I'm writing this)
