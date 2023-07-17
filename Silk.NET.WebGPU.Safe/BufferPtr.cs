@@ -36,11 +36,13 @@ namespace Silk.NET.WebGPU.Safe
 
         public void Destroy() => _wgpu.BufferDestroy(_ptr);
 
-        public Span<T> GetConstMappedRange<T>(nuint offset, nuint size)
+        public ReadOnlySpan<T> GetConstMappedRange<T>(nuint offset, nuint size)
             where T : unmanaged
         {
             return new(_wgpu.BufferGetConstMappedRange(_ptr, offset, size), (int)size/sizeof(T));
         }
+
+        public BufferMapState GetMapState() => _wgpu.BufferGetMapState(_ptr);
 
         public Span<T> GetMappedRange<T>(nuint offset, nuint size)
             where T : unmanaged
@@ -70,5 +72,9 @@ namespace Silk.NET.WebGPU.Safe
         }
 
         public void Unmap() => _wgpu.BufferUnmap(_ptr);
+
+        public void Reference() => _wgpu.BufferReference(_ptr);
+
+        public void Release() => _wgpu.BufferRelease(_ptr);
     }
 }

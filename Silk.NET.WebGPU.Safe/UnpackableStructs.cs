@@ -1,4 +1,6 @@
+using Silk.NET.Core.Attributes;
 using Silk.NET.Core.Native;
+using System.Diagnostics;
 using WGPU = Silk.NET.WebGPU;
 
 namespace Silk.NET.WebGPU.Safe
@@ -9,6 +11,8 @@ namespace Silk.NET.WebGPU.Safe
 
         internal static CompilationInfo UnpackFrom(WGPU.CompilationInfo* native)
         {
+            Debug.Assert(native->NextInChain == null);
+
             var messages = new CompilationMessage[native->MessageCount];
 
             for (uint i = 0; i < native->MessageCount; i++)
@@ -34,4 +38,50 @@ namespace Silk.NET.WebGPU.Safe
 
     public record struct CompilationMessage(string? Message, CompilationMessageType Type, 
         ulong LineNum, ulong LinePos, ulong Offset, ulong Length);
+
+    public unsafe struct AdapterProperties
+    {
+        public uint VendorID;
+
+        public string? VendorName;
+
+        public string? Architecture;
+
+        public uint DeviceID;
+
+        public string? Name;
+
+        public string? DriverDescription;
+
+        public AdapterType AdapterType;
+
+        public BackendType BackendType;
+
+        internal static AdapterProperties UnpackFrom(WGPU.AdapterProperties* native)
+        {
+            Debug.Assert(native->NextInChain == null);
+
+            var properties = new AdapterProperties
+            {
+                VendorID = native->VendorID,
+                VendorName = SilkMarshal.PtrToString(
+                (nint)native->VendorName, NativeStringEncoding.UTF8),
+
+                Architecture = SilkMarshal.PtrToString(
+                (nint)native->Architecture, NativeStringEncoding.UTF8),
+
+                DeviceID = native->DeviceID,
+                Name = SilkMarshal.PtrToString(
+                (nint)native->Name, NativeStringEncoding.UTF8),
+
+                DriverDescription = SilkMarshal.PtrToString(
+                (nint)native->DriverDescription, NativeStringEncoding.UTF8),
+
+                AdapterType = native->AdapterType,
+                BackendType = native->BackendType
+            };
+
+            return properties;
+        }
+    }
 }

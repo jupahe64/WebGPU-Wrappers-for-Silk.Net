@@ -74,5 +74,9 @@ namespace Silk.NET.WebGPU.Safe
             _wgpu.ComputePassEncoderSetPipeline(_ptr, pipeline);
             
         }
+
+        public void Reference() => _wgpu.ComputePassEncoderReference(_ptr);
+
+        public void Release() => _wgpu.ComputePassEncoderRelease(_ptr);
     }
 }

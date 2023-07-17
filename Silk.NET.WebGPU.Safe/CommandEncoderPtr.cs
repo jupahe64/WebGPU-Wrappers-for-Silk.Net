@@ -41,6 +41,7 @@ namespace Silk.NET.WebGPU.Safe
             ReadOnlySpan<RenderPassTimestampWrite> timestampWrites, 
             RenderPassDepthStencilAttachment? depthStencilAttachment,
             QuerySetPtr? occlusionQuerySet,
+            uint? maxDrawCount = null,
             string? label = null)
         {
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
@@ -62,10 +63,17 @@ namespace Silk.NET.WebGPU.Safe
                 var tmp = depthStencilAttachment.Value.Pack();
                 depthStencilAttachmentPtr = &tmp;
             }
-            
 
+            var maxDrawCountStruct = new RenderPassDescriptorMaxDrawCount
+            {
+                Chain = new ChainedStruct { SType = SType.RenderPassDescriptorMaxDrawCount },
+                MaxDrawCount = maxDrawCount.GetValueOrDefault()
+            };
+            
             var descriptor = new RenderPassDescriptor
             {
+                NextInChain = maxDrawCount.HasValue ? 
+                    (ChainedStruct*)&maxDrawCountStruct : null,
                 Label = marshalledLabel.Ptr,
                 TimestampWriteCount = (uint)timestampWrites.Length,
                 TimestampWrites = timestampWritesPtr,

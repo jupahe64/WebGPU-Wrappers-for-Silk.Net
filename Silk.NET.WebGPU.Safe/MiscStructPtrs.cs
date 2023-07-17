@@ -41,6 +41,10 @@ namespace Silk.NET.WebGPU.Safe
 
             _wgpu.BindGroupSetLabel(_ptr, marshalledLabel.Ptr);
         }
+
+        public void Reference() => _wgpu.BindGroupReference(_ptr);
+
+        public void Release() => _wgpu.BindGroupRelease(_ptr);
     }
 
     public unsafe static class BindGroupEntries
@@ -74,6 +78,10 @@ namespace Silk.NET.WebGPU.Safe
 
             _wgpu.BindGroupLayoutSetLabel(_ptr, marshalledLabel.Ptr);
         }
+
+        public void Reference() => _wgpu.BindGroupLayoutReference(_ptr);
+
+        public void Release() => _wgpu.BindGroupLayoutRelease(_ptr);
     }
 
     public unsafe static class BindGroupLayoutEntries
@@ -112,6 +120,10 @@ namespace Silk.NET.WebGPU.Safe
 
             _wgpu.CommandBufferSetLabel(_ptr, marshalledLabel.Ptr);
         }
+
+        public void Reference() => _wgpu.CommandBufferReference(_ptr);
+
+        public void Release() => _wgpu.CommandBufferRelease(_ptr);
     }
 
     public readonly unsafe struct ComputePipelinePtr
@@ -136,10 +148,16 @@ namespace Silk.NET.WebGPU.Safe
 
             _wgpu.ComputePipelineSetLabel(_ptr, marshalledLabel.Ptr);
         }
+
+        public void Reference() => _wgpu.ComputePipelineReference(_ptr);
+
+        public void Release() => _wgpu.ComputePipelineRelease(_ptr);
     }
 
     public readonly unsafe struct PipelineLayoutPtr
     {
+        public static readonly PipelineLayoutPtr? Auto = null;
+
         private readonly WebGPU _wgpu;
         private readonly PipelineLayout* _ptr;
 
@@ -157,6 +175,10 @@ namespace Silk.NET.WebGPU.Safe
 
             _wgpu.PipelineLayoutSetLabel(_ptr, marshalledLabel.Ptr);
         }
+
+        public void Reference() => _wgpu.PipelineLayoutReference(_ptr);
+
+        public void Release() => _wgpu.PipelineLayoutRelease(_ptr);
     }
 
     public readonly unsafe struct QuerySetPtr
@@ -184,6 +206,10 @@ namespace Silk.NET.WebGPU.Safe
 
             _wgpu.QuerySetSetLabel(_ptr, marshalledLabel.Ptr);
         }
+
+        public void Reference() => _wgpu.QuerySetReference(_ptr);
+
+        public void Release() => _wgpu.QuerySetRelease(_ptr);
     }
 
     public readonly unsafe struct RenderBundlePtr
@@ -198,6 +224,17 @@ namespace Silk.NET.WebGPU.Safe
         }
 
         public static implicit operator RenderBundle*(RenderBundlePtr ptr) => ptr._ptr;
+
+        public void SetLabel(string label)
+        {
+            using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
+
+            _wgpu.RenderBundleSetLabel(_ptr, marshalledLabel.Ptr);
+        }
+
+        public void Reference() => _wgpu.RenderBundleReference(_ptr);
+
+        public void Release() => _wgpu.RenderBundleRelease(_ptr);
     }
 
     public readonly unsafe struct RenderPipelinePtr
@@ -222,6 +259,10 @@ namespace Silk.NET.WebGPU.Safe
 
             _wgpu.RenderPipelineSetLabel(_ptr, marshalledLabel.Ptr);
         }
+
+        public void Reference() => _wgpu.RenderPipelineReference(_ptr);
+
+        public void Release() => _wgpu.RenderPipelineRelease(_ptr);
     }
 
     public readonly unsafe struct SamplerPtr
@@ -242,6 +283,10 @@ namespace Silk.NET.WebGPU.Safe
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
             _wgpu.SamplerSetLabel(_ptr, marshalledLabel.Ptr);
         }
+
+        public void Reference() => _wgpu.SamplerReference(_ptr);
+
+        public void Release() => _wgpu.SamplerRelease(_ptr);
     }
 
     public readonly unsafe struct SurfacePtr
@@ -261,6 +306,10 @@ namespace Silk.NET.WebGPU.Safe
         {
             return _wgpu.SurfaceGetPreferredFormat(_ptr, adapter);
         }
+
+        public void Reference() => _wgpu.SurfaceReference(_ptr);
+
+        public void Release() => _wgpu.SurfaceRelease(_ptr);
     }
     
     public readonly unsafe struct SwapChainPtr
@@ -285,6 +334,10 @@ namespace Silk.NET.WebGPU.Safe
         {
             _wgpu.SwapChainPresent(_ptr);
         }
+
+        public void Reference() => _wgpu.SwapChainReference(_ptr);
+
+        public void Release() => _wgpu.SwapChainRelease(_ptr);
     }
 
     public readonly unsafe struct TexturePtr
@@ -346,6 +399,10 @@ namespace Silk.NET.WebGPU.Safe
 
             _wgpu.TextureSetLabel(_ptr, marshalledLabel.Ptr);
         }
+
+        public void Reference() => _wgpu.TextureReference(_ptr);
+
+        public void Release() => _wgpu.TextureRelease(_ptr);
     }
 
     public readonly unsafe struct TextureViewPtr
@@ -367,5 +424,9 @@ namespace Silk.NET.WebGPU.Safe
 
             _wgpu.TextureViewSetLabel(_ptr, marshalledLabel.Ptr);
         }
+
+        public void Reference() => _wgpu.TextureViewReference(_ptr);
+
+        public void Release() => _wgpu.TextureViewRelease(_ptr);
     }
 }

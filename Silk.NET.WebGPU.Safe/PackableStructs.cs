@@ -1,5 +1,7 @@
 using System;
 using System.Text;
+using System.Xml.Linq;
+using Silk.NET.Core.Attributes;
 using Silk.NET.Core.Native;
 using WGPU = Silk.NET.WebGPU;
 
@@ -7,14 +9,14 @@ namespace Silk.NET.WebGPU.Safe
 {
     public unsafe struct ProgrammableStage
     {
-        public ShaderModulePtr ShaderModule;
+        public ShaderModulePtr Module;
         public string EntryPoint;
         public (string key, double value)[] Constants;
 
         public ProgrammableStage(ShaderModulePtr shaderModule, string entryPoint,
             (string key, double value)[] constants)
         {
-            ShaderModule = shaderModule;
+            Module = shaderModule;
             EntryPoint = entryPoint;
             Constants = constants;
         }
@@ -41,7 +43,7 @@ namespace Silk.NET.WebGPU.Safe
                 var constants = (ConstantEntry*)ptr;
                 ptr += sizeof(ConstantEntry) * Constants.Length;
 
-                baseStruct.Module = ShaderModule;
+                baseStruct.Module = Module;
                 baseStruct.ConstantCount = (uint)Constants.Length;
                 baseStruct.Constants = constants;
 
@@ -68,15 +70,15 @@ namespace Silk.NET.WebGPU.Safe
 
     public unsafe struct VertexState
     {
-        public ShaderModulePtr ShaderModule;
+        public ShaderModulePtr Module;
         public string EntryPoint;
         public (string key, double value)[] Constants;
         public VertexBufferLayout[] Buffers;
 
-        public VertexState(ShaderModulePtr shaderModule, string entryPoint,
+        public VertexState(ShaderModulePtr module, string entryPoint,
             (string key, double value)[] constants, VertexBufferLayout[] buffers)
         {
-            ShaderModule = shaderModule;
+            Module = module;
             EntryPoint = entryPoint;
             Constants = constants;
             Buffers = buffers;
@@ -110,7 +112,7 @@ namespace Silk.NET.WebGPU.Safe
                 var buffers = (WGPU.VertexBufferLayout*)ptr;
                 ptr += sizeof(WGPU.VertexBufferLayout) * Buffers.Length;
 
-                baseStruct.Module = ShaderModule;
+                baseStruct.Module = Module;
                 baseStruct.ConstantCount = (uint)Constants.Length;
                 baseStruct.Constants = constants;
                 baseStruct.BufferCount = (uint)Buffers.Length;
@@ -134,6 +136,57 @@ namespace Silk.NET.WebGPU.Safe
                     var subBuffer = payloadBuffer.Slice((int)(ptr - startPtr));
                     ptr += Buffers[i].PackInto(ref buffers[i], subBuffer);
                 }
+
+                payloadSize = (int)(ptr - startPtr);
+            }
+            return payloadSize;
+        }
+    }
+
+    public unsafe struct PrimitiveState
+    {
+        public PrimitiveTopology Topology;
+        public IndexFormat StripIndexFormat;
+        public FrontFace FrontFace;
+        public CullMode CullMode;
+        public bool UnclippedDepth;
+
+        public PrimitiveState(PrimitiveTopology topology, 
+            IndexFormat stripIndexFormat, FrontFace frontFace, 
+            CullMode cullMode, bool unclippedDepth)
+        {
+            Topology = topology;
+            StripIndexFormat = stripIndexFormat;
+            FrontFace = frontFace;
+            CullMode = cullMode;
+            UnclippedDepth = unclippedDepth;
+        }
+
+        internal int CalculatePayloadSize()
+        {
+            return sizeof(PrimitiveDepthClipControl);
+        }
+
+        internal int PackInto(ref Silk.NET.WebGPU.PrimitiveState baseStruct, Span<byte> payloadBuffer)
+        {
+            int payloadSize;
+
+            fixed (byte* startPtr = payloadBuffer)
+            {
+                var ptr = startPtr;
+
+                var clipControl = (PrimitiveDepthClipControl*)ptr;
+                ptr += sizeof(PrimitiveDepthClipControl);
+
+                baseStruct.Topology = Topology;
+                baseStruct.StripIndexFormat = StripIndexFormat;
+                baseStruct.FrontFace = FrontFace;
+                baseStruct.CullMode = CullMode;
+
+                clipControl->UnclippedDepth = UnclippedDepth;
+                clipControl->Chain.SType = SType.PrimitiveDepthClipControl;
+
+                baseStruct.NextInChain = (ChainedStruct*)clipControl;
 
                 payloadSize = (int)(ptr - startPtr);
             }
@@ -187,18 +240,18 @@ namespace Silk.NET.WebGPU.Safe
 
     public unsafe struct FragmentState
     {
-        public ShaderModulePtr ShaderModule;
+        public ShaderModulePtr Module;
         public string EntryPoint;
         public (string key, double value)[] Constants;
-        public ColorTargetState[] ColorTargets;
+        public ColorTargetState[] Targets;
 
-        public FragmentState(ShaderModulePtr shaderModule, string entryPoint,
+        public FragmentState(ShaderModulePtr module, string entryPoint,
             (string key, double value)[] constants, ColorTargetState[] colorTargets)
         {
-            ShaderModule = shaderModule;
+            Module = module;
             EntryPoint = entryPoint;
             Constants = constants;
-            ColorTargets = colorTargets;
+            Targets = colorTargets;
         }
 
         internal int CalculatePayloadSize()
@@ -208,9 +261,9 @@ namespace Silk.NET.WebGPU.Safe
             for (int i = 0; i < Constants.Length; i++)
                 size += SilkMarshal.GetMaxSizeOf(Constants[i].key, NativeStringEncoding.UTF8);
 
-            size += sizeof(WGPU.ColorTargetState) * ColorTargets.Length;
-            for (int i = 0; i < ColorTargets.Length; i++)
-                size += ColorTargets[i].CalculatePayloadSize();
+            size += sizeof(WGPU.ColorTargetState) * Targets.Length;
+            for (int i = 0; i < Targets.Length; i++)
+                size += Targets[i].CalculatePayloadSize();
 
             return size;
         }
@@ -227,12 +280,12 @@ namespace Silk.NET.WebGPU.Safe
                 ptr += sizeof(ConstantEntry) * Constants.Length;
 
                 var targets = (WGPU.ColorTargetState*)ptr;
-                ptr += sizeof(WGPU.ColorTargetState) * ColorTargets.Length;
+                ptr += sizeof(WGPU.ColorTargetState) * Targets.Length;
 
-                baseStruct.Module = ShaderModule;
+                baseStruct.Module = Module;
                 baseStruct.ConstantCount = (uint)Constants.Length;
                 baseStruct.Constants = constants;
-                baseStruct.TargetCount = (uint)ColorTargets.Length;
+                baseStruct.TargetCount = (uint)Targets.Length;
                 baseStruct.Targets = targets;
 
                 baseStruct.EntryPoint = ptr;
@@ -248,10 +301,10 @@ namespace Silk.NET.WebGPU.Safe
                     constants[i].Value = Constants[i].value;
                 }
 
-                for (int i = 0; i < ColorTargets.Length; i++)
+                for (int i = 0; i < Targets.Length; i++)
                 {
                     var subBuffer = payloadBuffer.Slice((int)(ptr - startPtr));
-                    ptr += ColorTargets[i].PackInto(ref targets[i], subBuffer);
+                    ptr += Targets[i].PackInto(ref targets[i], subBuffer);
                 }
 
                 payloadSize = (int)(ptr - startPtr);

@@ -3,6 +3,8 @@ using Silk.NET.Core.Native;
 using System.Threading.Tasks;
 using Silk.NET.WebGPU.Safe.Utils;
 using System.Dynamic;
+using Silk.NET.Core.Attributes;
+using Silk.NET.Core;
 
 namespace Silk.NET.WebGPU.Safe
 {
@@ -163,11 +165,22 @@ namespace Silk.NET.WebGPU.Safe
             _wgpu.InstanceProcessEvents(_ptr);
         }
 
-        public Task<AdapterPtr> RequestAdapter(in RequestAdapterOptions options)
+        public Task<AdapterPtr> RequestAdapter(SurfacePtr? compatibleSurface = null, 
+            PowerPreference powerPreference = default,
+            BackendType backendType = default,
+            Bool32 forceFallbackAdapter = default)
         {
             var task = new TaskCompletionSource<AdapterPtr>();
             int key = s_adapterRequests.Rent((_wgpu, task));
-            _wgpu.InstanceRequestAdapter(_ptr, in options, s_AdapterRequestCallback, (void*)key);
+            _wgpu.InstanceRequestAdapter(_ptr, 
+                new RequestAdapterOptions
+                {
+                    CompatibleSurface = compatibleSurface ?? (Surface*)null,
+                    PowerPreference = powerPreference,
+                    BackendType = backendType,
+                    ForceFallbackAdapter = forceFallbackAdapter,
+                }
+                , s_AdapterRequestCallback, (void*)key);
 
             return task.Task;
         }
