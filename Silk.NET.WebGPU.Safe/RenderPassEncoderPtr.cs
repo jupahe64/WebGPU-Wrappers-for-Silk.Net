@@ -90,7 +90,8 @@ namespace Silk.NET.WebGPU.Safe
 
         public void SetBindGroup(uint groupIndex, BindGroupPtr bindGroup, ReadOnlySpan<uint> dynamicOffsets)
         {
-            _wgpu.RenderPassEncoderSetBindGroup(_ptr, groupIndex, bindGroup, (uint)dynamicOffsets.Length, in dynamicOffsets[0]);
+            fixed (uint* ptr = dynamicOffsets)
+                _wgpu.RenderPassEncoderSetBindGroup(_ptr, groupIndex, bindGroup, (uint)dynamicOffsets.Length, ptr);
         }
 
         public void SetBlendConstant(Color color)

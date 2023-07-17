@@ -112,7 +112,7 @@ namespace Silk.NET.WebGPU.Safe
         {
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
 
-            fixed (BindGroupEntry* entriesPtr = &entries[0])
+            fixed (BindGroupEntry* entriesPtr = entries)
             {
                 var descriptor = new BindGroupDescriptor
                 {
@@ -130,7 +130,7 @@ namespace Silk.NET.WebGPU.Safe
         {
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
 
-            fixed (BindGroupLayoutEntry* entriesPtr = &entries[0])
+            fixed (BindGroupLayoutEntry* entriesPtr = entries)
             {
                 var descriptor = new BindGroupLayoutDescriptor
                 {
@@ -233,7 +233,7 @@ namespace Silk.NET.WebGPU.Safe
         {
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
 
-            fixed (PipelineStatisticName* ptr = &statistics[0])
+            fixed (PipelineStatisticName* ptr = statistics)
             {
                 var descriptor = new QuerySetDescriptor
                 {
@@ -255,7 +255,7 @@ namespace Silk.NET.WebGPU.Safe
         {
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
 
-            fixed (TextureFormat* ptr = &colorFormats[0])
+            fixed (TextureFormat* ptr = colorFormats)
             {
                 var descriptor = new RenderBundleEncoderDescriptor
                 {
@@ -430,7 +430,7 @@ namespace Silk.NET.WebGPU.Safe
             for (int i = 0; i < compilationHints.Length; i++)
                 indexPtr += compilationHints[i].PackInto(ref compilationHintsPtr[i], payloadBuffer[indexPtr..]);
 
-            fixed(byte* codePtr = &code[0])
+            fixed(byte* codePtr = code)
             {
                 var wgslDescriptor = new ShaderModuleWGSLDescriptor
                 {
@@ -463,7 +463,7 @@ namespace Silk.NET.WebGPU.Safe
 
             int code32Size = code.Length / 4;
 
-            fixed (byte* code32Ptr = &code[0])
+            fixed (byte* code32Ptr = code)
                 return CreateShaderModuleSPIRV(
                     new ReadOnlySpan<uint>(code32Ptr, code32Size), 
                     compilationHints, label);
@@ -488,7 +488,7 @@ namespace Silk.NET.WebGPU.Safe
             for (int i = 0; i < compilationHints.Length; i++)
                 indexPtr += compilationHints[i].PackInto(ref compilationHintsPtr[i], payloadBuffer[indexPtr..]);
 
-            fixed(uint* codePtr = &code[0])
+            fixed(uint* codePtr = code)
             {
                 var wgslDescriptor = new ShaderModuleSPIRVDescriptor
                 {
@@ -536,7 +536,7 @@ namespace Silk.NET.WebGPU.Safe
         {
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
 
-            fixed(TextureFormat* viewFormatsPtr = &viewFormats[0])
+            fixed(TextureFormat* viewFormatsPtr = viewFormats)
             {
                 var descriptor = new TextureDescriptor
                 {

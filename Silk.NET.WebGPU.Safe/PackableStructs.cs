@@ -347,8 +347,8 @@ namespace Silk.NET.WebGPU.Safe
                 {
                     var blendState = (BlendState*)ptr;
                     ptr += sizeof(BlendState);
-                    blendState[0].Color = BlendState.Value.color;
-                    blendState[0].Alpha = BlendState.Value.alpha;
+                    blendState->Color = BlendState.Value.color;
+                    blendState->Alpha = BlendState.Value.alpha;
                     baseStruct.Blend = blendState;
                 }
 
