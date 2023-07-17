@@ -50,13 +50,13 @@ namespace Silk.NET.WebGPU.Safe
 
     public unsafe static class BindGroupEntries
     {
-        public static BindGroupEntry Buffer(uint binding, Buffer* buffer, ulong offset, ulong size) => 
+        public static BindGroupEntry Buffer(uint binding, BufferPtr buffer, ulong offset, ulong size) => 
             new(binding: binding, buffer: buffer, offset: offset, size: size);
 
-        public static BindGroupEntry Sampler(uint binding, Sampler* sampler) =>
+        public static BindGroupEntry Sampler(uint binding, SamplerPtr sampler) =>
             new(binding: binding, sampler: sampler);
 
-        public static BindGroupEntry Texture(uint binding, TextureView* textureView) =>
+        public static BindGroupEntry Texture(uint binding, TextureViewPtr textureView) =>
             new(binding: binding, textureView: textureView);
     }
 
