@@ -9,6 +9,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples", "Samples", "{B019
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hello-Triangle", "Samples\Hello-Triangle\Hello-Triangle.csproj", "{31B47596-2698-4890-A347-9927ACA48594}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Textured-Cube", "Samples\Textured-Cube\Textured-Cube.csproj", "{49C85A16-E504-45F6-A7FB-F18CF5EE6742}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -23,12 +25,17 @@ Global
 		{31B47596-2698-4890-A347-9927ACA48594}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{31B47596-2698-4890-A347-9927ACA48594}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{31B47596-2698-4890-A347-9927ACA48594}.Release|Any CPU.Build.0 = Release|Any CPU
+		{49C85A16-E504-45F6-A7FB-F18CF5EE6742}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{49C85A16-E504-45F6-A7FB-F18CF5EE6742}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{49C85A16-E504-45F6-A7FB-F18CF5EE6742}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{49C85A16-E504-45F6-A7FB-F18CF5EE6742}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{31B47596-2698-4890-A347-9927ACA48594} = {B01961D1-CC2F-42E3-B560-9CD98126083B}
+		{49C85A16-E504-45F6-A7FB-F18CF5EE6742} = {B01961D1-CC2F-42E3-B560-9CD98126083B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {636C9BF9-A89F-49EE-A346-2F1821BDD053}
