@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net7.0</TargetFramework>
+    <RootNamespace>Instancing</RootNamespace>
+    <Nullable>enable</Nullable>
+
+	<DisableFastUpToDateCheck>True</DisableFastUpToDateCheck>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="CubeTexture.png" />
+    <None Remove="shader.wgsl" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Silk.NET.WebGPU" Version="2.17.1" />
+    <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" Version="2.17.1" />
+	<PackageReference Include="Silk.NET.Windowing" Version="2.17.1" />
+	<PackageReference Include="SixLabors.ImageSharp" Version="3.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Silk.NET.WebGPU.Safe\Silk.NET.WebGPU.Safe.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<Content Include="CubeTexture.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="shader.wgsl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>
