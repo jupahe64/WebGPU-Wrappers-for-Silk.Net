@@ -301,14 +301,17 @@ namespace TexturedCube
                 (uint)window!.FramebufferSize.Y,
                 PresentMode.Immediate);
 
-            window.FramebufferResize += _ =>
+            window.FramebufferResize += size =>
             {
+                if (size.X * size.Y == 0)
+                    return;
+
                 swapchain.Release();
                 swapchain = device.CreateSwapChain(surface,
                 TextureUsage.RenderAttachment,
                 TextureFormat.Bgra8Unorm,
-                (uint)window!.FramebufferSize.X,
-                (uint)window!.FramebufferSize.Y,
+                (uint)size.X,
+                (uint)size.Y,
                 PresentMode.Immediate);
             };
 

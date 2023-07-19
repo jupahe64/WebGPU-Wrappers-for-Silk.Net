@@ -388,21 +388,24 @@ namespace Instancing
             depthBufferView = depthBuffer.CreateView(TextureFormat.Depth16Unorm, TextureViewDimension.Dimension2D, TextureAspect.All,
                 baseMipLevel: 0, mipLevelCount: 1, baseArrayLayer: 0, arrayLayerCount: 1, label: "DepthBuffer - View");
 
-            window.FramebufferResize += _ =>
+            window.FramebufferResize += size =>
             {
+                if (size.X * size.Y == 0)
+                    return;
+
                 swapchain.Release();
                 swapchain = device.CreateSwapChain(surface,
                 TextureUsage.RenderAttachment,
                 TextureFormat.Bgra8Unorm,
-                (uint)window!.FramebufferSize.X,
-                (uint)window!.FramebufferSize.Y,
+                (uint)size.X,
+                (uint)size.Y,
                 PresentMode.Immediate);
 
                 depthBuffer.Destroy();
                 depthBuffer = device.CreateTexture(TextureUsage.RenderAttachment, TextureDimension.Dimension2D, new Extent3D
                 {
-                    Width = (uint)window!.FramebufferSize.X,
-                    Height = (uint)window!.FramebufferSize.Y,
+                    Width = (uint)size.X,
+                    Height = (uint)size.Y,
                     DepthOrArrayLayers = 1
                 }, TextureFormat.Depth16Unorm, mipLevelCount: 1, sampleCount: 1, viewFormats: new TextureFormat[]
                 {
