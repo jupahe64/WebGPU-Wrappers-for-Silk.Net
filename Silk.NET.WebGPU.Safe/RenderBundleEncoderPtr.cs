@@ -92,5 +92,9 @@ namespace Silk.NET.WebGPU.Safe
         {
             _wgpu.RenderBundleEncoderSetVertexBuffer(_ptr, slot, buffer, offset, size);
         }
+
+        public void Reference() => _wgpu.RenderBundleEncoderReference(_ptr);
+
+        public void Release() => _wgpu.RenderBundleEncoderRelease(_ptr);
     }
 }

@@ -184,5 +184,9 @@ namespace Silk.NET.WebGPU.Safe
 
             return task.Task;
         }
+
+        public void Reference() => _wgpu.InstanceReference(_ptr);
+
+        public void Release() => _wgpu.InstanceRelease(_ptr);
     }
 }

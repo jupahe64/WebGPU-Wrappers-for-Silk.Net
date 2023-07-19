@@ -83,5 +83,9 @@ namespace Silk.NET.WebGPU.Safe
                     dataLayoutPtr, writeSizePtr);
             }
         }
+
+        public void Reference() => _wgpu.QueueReference(_ptr);
+
+        public void Release() => _wgpu.QueueRelease(_ptr);
     }
 }

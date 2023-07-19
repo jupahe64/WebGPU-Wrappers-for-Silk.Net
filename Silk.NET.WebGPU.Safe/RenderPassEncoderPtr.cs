@@ -99,7 +99,7 @@ namespace Silk.NET.WebGPU.Safe
             _wgpu.RenderPassEncoderSetBlendConstant(_ptr, in color);
         }
 
-        public void SetIndexBuffer(uint groupIndex, BufferPtr buffer, IndexFormat format, ulong offset, ulong size)
+        public void SetIndexBuffer(BufferPtr buffer, IndexFormat format, ulong offset, ulong size)
         {
             _wgpu.RenderPassEncoderSetIndexBuffer(_ptr, buffer, format, offset, size);
             
@@ -136,5 +136,9 @@ namespace Silk.NET.WebGPU.Safe
         {
             _wgpu.RenderPassEncoderSetViewport(_ptr, x, y, width, height, minDepth, maxDepth);
         }
+
+        public void Reference() => _wgpu.RenderPassEncoderReference(_ptr);
+
+        public void Release() => _wgpu.RenderPassEncoderRelease(_ptr);
     }
 }

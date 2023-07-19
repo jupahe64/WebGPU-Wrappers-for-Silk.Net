@@ -131,10 +131,8 @@ namespace Silk.NET.WebGPU.Safe
             }
         }
 
-        public void Reference()
-            => _wgpu.AdapterReference(_ptr);
+        public void Reference() => _wgpu.AdapterReference(_ptr);
 
-        public void Release()
-            => _wgpu.AdapterRelease(_ptr);
+        public void Release() => _wgpu.AdapterRelease(_ptr);
     }
 }

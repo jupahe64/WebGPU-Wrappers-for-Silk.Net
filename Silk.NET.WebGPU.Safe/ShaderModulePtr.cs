@@ -49,5 +49,9 @@ namespace Silk.NET.WebGPU.Safe
 
             _wgpu.ShaderModuleSetLabel(_ptr, marshalledLabel.Ptr);
         }
+
+        public void Reference() => _wgpu.ShaderModuleReference(_ptr);
+        
+        public void Release() => _wgpu.ShaderModuleRelease(_ptr);
     }
 }

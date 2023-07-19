@@ -603,5 +603,9 @@ namespace Silk.NET.WebGPU.Safe
             s_uncapturedErrorCallbacks.Add(callback);
             _wgpu.DeviceSetUncapturedErrorCallback(_ptr, s_UncapturedErrorCallback, (void*)idx);
         }
+
+        public void Reference() => _wgpu.DeviceReference(_ptr);
+
+        public void Release() => _wgpu.DeviceRelease(_ptr);
     }
 }

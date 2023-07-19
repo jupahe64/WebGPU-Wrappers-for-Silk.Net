@@ -168,5 +168,9 @@ namespace Silk.NET.WebGPU.Safe
         {
             _wgpu.CommandEncoderWriteTimestamp(_ptr, querySet, queryIndex);
         }
+
+        public void Reference() => _wgpu.CommandEncoderReference(_ptr);
+
+        public void Release() => _wgpu.CommandEncoderRelease(_ptr);
     }
 }
