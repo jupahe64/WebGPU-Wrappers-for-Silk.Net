@@ -132,7 +132,7 @@ namespace Silk.NET.WebGPU.Safe
             _wgpu.RenderPassEncoderSetVertexBuffer(_ptr, slot, buffer, offset, size);
         }
 
-        public void RenderPassEncoderSetViewport(float x, float y, float width, float height, float minDepth, float maxDepth)
+        public void SetViewport(float x, float y, float width, float height, float minDepth, float maxDepth)
         {
             _wgpu.RenderPassEncoderSetViewport(_ptr, x, y, width, height, minDepth, maxDepth);
         }
