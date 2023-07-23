@@ -10,7 +10,7 @@ namespace Silk.NET.WebGPU.Safe
 {
     public delegate void DeviceLostCallback(DeviceLostReason reason, string? message);
 
-    public readonly unsafe struct AdapterPtr
+    public readonly unsafe partial struct AdapterPtr
     {
         private static readonly RentalStorage<(WebGPU, TaskCompletionSource<DevicePtr>)> s_deviceRequests = new();
 

@@ -23,7 +23,7 @@ namespace Silk.NET.WebGPU.Safe
         }
     }
 
-    public readonly unsafe struct BindGroupPtr
+    public readonly unsafe partial struct BindGroupPtr
     {
         private readonly WebGPU _wgpu;
         private readonly BindGroup* _ptr;
@@ -60,7 +60,7 @@ namespace Silk.NET.WebGPU.Safe
             new(binding: binding, textureView: textureView);
     }
 
-    public readonly unsafe struct BindGroupLayoutPtr
+    public readonly unsafe partial struct BindGroupLayoutPtr
     {
         private readonly WebGPU _wgpu;
         private readonly BindGroupLayout* _ptr;
@@ -102,7 +102,7 @@ namespace Silk.NET.WebGPU.Safe
                 texture: new(sampleType: sampleType, viewDimension: viewDimension, multisampled: multisampled));
     }
 
-    public readonly unsafe struct CommandBufferPtr
+    public readonly unsafe partial struct CommandBufferPtr
     {
         private readonly WebGPU _wgpu;
         private readonly CommandBuffer* _ptr;
@@ -127,7 +127,7 @@ namespace Silk.NET.WebGPU.Safe
         public void Release() => _wgpu.CommandBufferRelease(_ptr);
     }
 
-    public readonly unsafe struct ComputePipelinePtr
+    public readonly unsafe partial struct ComputePipelinePtr
     {
         private readonly WebGPU _wgpu;
         private readonly ComputePipeline* _ptr;
@@ -155,7 +155,7 @@ namespace Silk.NET.WebGPU.Safe
         public void Release() => _wgpu.ComputePipelineRelease(_ptr);
     }
 
-    public readonly unsafe struct PipelineLayoutPtr
+    public readonly unsafe partial struct PipelineLayoutPtr
     {
         private readonly WebGPU _wgpu;
         private readonly PipelineLayout* _ptr;
@@ -182,7 +182,7 @@ namespace Silk.NET.WebGPU.Safe
         public void Release() => _wgpu.PipelineLayoutRelease(_ptr);
     }
 
-    public readonly unsafe struct QuerySetPtr
+    public readonly unsafe partial struct QuerySetPtr
     {
         private readonly WebGPU _wgpu;
         private readonly QuerySet* _ptr;
@@ -213,7 +213,7 @@ namespace Silk.NET.WebGPU.Safe
         public void Release() => _wgpu.QuerySetRelease(_ptr);
     }
 
-    public readonly unsafe struct RenderBundlePtr
+    public readonly unsafe partial struct RenderBundlePtr
     {
         private readonly WebGPU _wgpu;
         private readonly RenderBundle* _ptr;
@@ -238,7 +238,7 @@ namespace Silk.NET.WebGPU.Safe
         public void Release() => _wgpu.RenderBundleRelease(_ptr);
     }
 
-    public readonly unsafe struct RenderPipelinePtr
+    public readonly unsafe partial struct RenderPipelinePtr
     {
         private readonly WebGPU _wgpu;
         private readonly RenderPipeline* _ptr;
@@ -266,7 +266,7 @@ namespace Silk.NET.WebGPU.Safe
         public void Release() => _wgpu.RenderPipelineRelease(_ptr);
     }
 
-    public readonly unsafe struct SamplerPtr
+    public readonly unsafe partial struct SamplerPtr
     {
         private readonly WebGPU _wgpu;
         private readonly Sampler* _ptr;
@@ -298,7 +298,7 @@ namespace Silk.NET.WebGPU.Safe
         }
     }
 
-    public readonly unsafe struct SurfacePtr
+    public readonly unsafe partial struct SurfacePtr
     {
         private readonly WebGPU _wgpu;
         private readonly Surface* _ptr;
@@ -321,7 +321,7 @@ namespace Silk.NET.WebGPU.Safe
         public void Release() => _wgpu.SurfaceRelease(_ptr);
     }
     
-    public readonly unsafe struct SwapChainPtr
+    public readonly unsafe partial struct SwapChainPtr
     {
         private readonly WebGPU _wgpu;
         private readonly SwapChain* _ptr;
@@ -349,7 +349,7 @@ namespace Silk.NET.WebGPU.Safe
         public void Release() => _wgpu.SwapChainRelease(_ptr);
     }
 
-    public readonly unsafe struct TexturePtr
+    public readonly unsafe partial struct TexturePtr
     {
         private readonly WebGPU _wgpu;
         private readonly Texture* _ptr;
@@ -414,7 +414,7 @@ namespace Silk.NET.WebGPU.Safe
         public void Release() => _wgpu.TextureRelease(_ptr);
     }
 
-    public readonly unsafe struct TextureViewPtr
+    public readonly unsafe partial struct TextureViewPtr
     {
         private readonly WebGPU _wgpu;
         private readonly TextureView* _ptr;

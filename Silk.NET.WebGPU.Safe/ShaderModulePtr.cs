@@ -5,7 +5,7 @@ using WGPU = Silk.NET.WebGPU;
 
 namespace Silk.NET.WebGPU.Safe
 {
-    public readonly unsafe struct ShaderModulePtr
+    public readonly unsafe partial struct ShaderModulePtr
     {
         private static readonly RentalStorage<TaskCompletionSource<CompilationInfo>> s_getCompilationInfoTasks = new();
 

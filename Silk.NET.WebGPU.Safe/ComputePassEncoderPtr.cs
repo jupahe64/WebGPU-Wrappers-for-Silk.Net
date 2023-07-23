@@ -3,7 +3,7 @@ using Silk.NET.Core.Native;
 
 namespace Silk.NET.WebGPU.Safe
 {
-    public readonly unsafe struct ComputePassEncoderPtr
+    public readonly unsafe partial struct ComputePassEncoderPtr
     {
         private readonly WebGPU _wgpu;
         private readonly ComputePassEncoder* _ptr;

@@ -3,7 +3,7 @@ using Silk.NET.Core.Native;
 
 namespace Silk.NET.WebGPU.Safe
 {
-    public readonly unsafe struct RenderBundleEncoderPtr
+    public readonly unsafe partial struct RenderBundleEncoderPtr
     {
         private readonly WebGPU _wgpu;
         private readonly RenderBundleEncoder* _ptr;

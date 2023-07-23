@@ -4,7 +4,7 @@ using WGPU = Silk.NET.WebGPU;
 
 namespace Silk.NET.WebGPU.Safe
 {
-    public readonly unsafe struct CommandEncoderPtr
+    public readonly unsafe partial struct CommandEncoderPtr
     {
         private readonly WebGPU _wgpu;
         private readonly CommandEncoder* _ptr;

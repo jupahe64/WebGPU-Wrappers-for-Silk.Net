@@ -13,7 +13,7 @@ namespace Silk.NET.WebGPU.Safe
 {
     public delegate void ErrorCallback(ErrorType type, string? message);
 
-    public readonly unsafe struct DevicePtr
+    public readonly unsafe partial struct DevicePtr
     {
         private static readonly RentalStorage<(WebGPU, TaskCompletionSource<ComputePipelinePtr>)> s_computePipelineRequests = new();
 

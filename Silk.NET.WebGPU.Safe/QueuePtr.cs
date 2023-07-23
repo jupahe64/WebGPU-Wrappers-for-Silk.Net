@@ -6,7 +6,7 @@ using WGPU = Silk.NET.WebGPU;
 
 namespace Silk.NET.WebGPU.Safe
 {
-    public readonly unsafe struct QueuePtr
+    public readonly unsafe partial struct QueuePtr
     {
         private record struct Void();
         private static RentalStorage<TaskCompletionSource<Void>> s_onSubmittedWorkTasks = new();

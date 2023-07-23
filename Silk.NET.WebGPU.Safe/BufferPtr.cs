@@ -5,7 +5,7 @@ using Silk.NET.WebGPU.Safe.Utils;
 
 namespace Silk.NET.WebGPU.Safe
 {
-    public readonly unsafe struct BufferPtr
+    public readonly unsafe partial struct BufferPtr
     {
         private record struct Void();
         private static readonly RentalStorage<TaskCompletionSource<Void>> s_bufferMapTasks = new();

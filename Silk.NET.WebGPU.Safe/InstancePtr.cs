@@ -16,7 +16,7 @@ namespace Silk.NET.WebGPU.Safe
         }
     }
 
-    public unsafe struct InstancePtr
+    public unsafe partial struct InstancePtr
     {
         private static readonly RentalStorage<(WebGPU, TaskCompletionSource<AdapterPtr>)> s_adapterRequests = new();
 
