@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>netstandard2.0;netstandard2.1;netcoreapp3.1;net5.0</TargetFrameworks>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<LangVersion>preview</LangVersion>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Silk.NET.WebGPU" Version="2.17.1" />
+		<PackageReference Include="ImGui.NET" Version="1.89.7.1" />
+		<PackageReference Include="Silk.NET.Input" Version="2.17.1" />
+		<PackageReference Include="Silk.NET.Input.Extensions" Version="2.17.1" />
+		<PackageReference Include="Silk.NET.WebGPU" Version="2.17.1" />
+		<PackageReference Include="Silk.NET.Windowing" Version="2.17.1" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Silk.NET.WebGPU.Safe\Silk.NET.WebGPU.Safe.csproj" />
+	</ItemGroup>
+</Project>
+

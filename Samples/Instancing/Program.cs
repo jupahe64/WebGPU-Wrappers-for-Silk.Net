@@ -14,6 +14,7 @@ using Image = SixLabors.ImageSharp.Image;
 using SixLabors.ImageSharp.PixelFormats;
 using System.IO;
 using System.Linq;
+using System.Threading;
 
 namespace Instancing
 {
@@ -56,10 +57,11 @@ namespace Instancing
         record struct BufferRange(BufferPtr Buffer, ulong Offset, ulong Size);
 
         private static IWindow? window;
+        private static SurfacePtr surface;
         private static RenderPipelinePtr pipeline;
-        private static SwapChainPtr swapchain;
-        private static TexturePtr depthBuffer;
-        private static TextureViewPtr depthBufferView;
+        private static SwapChainPtr? swapchain;
+        private static TexturePtr? depthBuffer;
+        private static TextureViewPtr? depthBufferView;
         private static DevicePtr device;
 
         private static BufferRange vertexBuffer;
@@ -182,7 +184,7 @@ namespace Instancing
                 powerPreference: PowerPreference.Undefined
             );
 
-            SurfacePtr surface = window!.CreateWebGPUSurface(wgpu, instance);
+            surface = window!.CreateWebGPUSurface(wgpu, instance);
 
             var features = adapter.EnumerateFeatures();
             var limits = adapter.GetLimits();
@@ -366,57 +368,6 @@ namespace Instancing
                 }
             );
 
-            Console.WriteLine("Creating Swapchain");
-
-            swapchain = device.CreateSwapChain(surface,
-                TextureUsage.RenderAttachment,
-                TextureFormat.Bgra8Unorm,
-                (uint)window!.FramebufferSize.X,
-                (uint)window!.FramebufferSize.Y,
-                PresentMode.Immediate);
-
-            depthBuffer = device.CreateTexture(TextureUsage.RenderAttachment, TextureDimension.Dimension2D, new Extent3D
-            {
-                Width = (uint)window!.FramebufferSize.X,
-                Height = (uint)window!.FramebufferSize.Y,
-                DepthOrArrayLayers = 1
-            }, TextureFormat.Depth16Unorm, mipLevelCount: 1, sampleCount: 1, viewFormats: new TextureFormat[]
-            {
-                TextureFormat.Depth16Unorm
-            }, label: "DepthBuffer");
-
-            depthBufferView = depthBuffer.CreateView(TextureFormat.Depth16Unorm, TextureViewDimension.Dimension2D, TextureAspect.All,
-                baseMipLevel: 0, mipLevelCount: 1, baseArrayLayer: 0, arrayLayerCount: 1, label: "DepthBuffer - View");
-
-            window.FramebufferResize += size =>
-            {
-                if (size.X * size.Y == 0)
-                    return;
-
-                swapchain.Release();
-                swapchain = device.CreateSwapChain(surface,
-                TextureUsage.RenderAttachment,
-                TextureFormat.Bgra8Unorm,
-                (uint)size.X,
-                (uint)size.Y,
-                PresentMode.Immediate);
-
-                depthBuffer.Destroy();
-                depthBuffer = device.CreateTexture(TextureUsage.RenderAttachment, TextureDimension.Dimension2D, new Extent3D
-                {
-                    Width = (uint)size.X,
-                    Height = (uint)size.Y,
-                    DepthOrArrayLayers = 1
-                }, TextureFormat.Depth16Unorm, mipLevelCount: 1, sampleCount: 1, viewFormats: new TextureFormat[]
-                {
-                    TextureFormat.Depth16Unorm
-                }, label: "DepthBuffer");
-
-                depthBufferView.Release();
-                depthBufferView = depthBuffer.CreateView(TextureFormat.Depth16Unorm, TextureViewDimension.Dimension2D, TextureAspect.All,
-                    baseMipLevel: 0, mipLevelCount: 1, baseArrayLayer: 0, arrayLayerCount: 1, label: "DepthBuffer - View");
-            };
-
             Console.WriteLine("Creating Vertexbuffer");
 
 
@@ -455,9 +406,40 @@ namespace Instancing
             Console.WriteLine("Done");
         }
 
+        private static Vector2D<int> _last_framebufferSize = new(0, 0);
+
         private static void W_Render(double deltaTime)
         {
-            var swapchainView = swapchain.GetCurrentTextureView();
+            var framebufferSize = window!.FramebufferSize;
+            if (_last_framebufferSize != framebufferSize)
+            {
+                _last_framebufferSize = framebufferSize;
+
+                swapchain?.Release();
+                swapchain = device.CreateSwapChain(surface,
+                TextureUsage.RenderAttachment,
+                TextureFormat.Bgra8Unorm,
+                (uint)window!.FramebufferSize.X,
+                (uint)window!.FramebufferSize.Y,
+                PresentMode.Immediate);
+
+                depthBuffer = device.CreateTexture(TextureUsage.RenderAttachment, TextureDimension.Dimension2D, new Extent3D
+                {
+                    Width = (uint)window!.FramebufferSize.X,
+                    Height = (uint)window!.FramebufferSize.Y,
+                    DepthOrArrayLayers = 1
+                }, TextureFormat.Depth16Unorm, mipLevelCount: 1, sampleCount: 1, viewFormats: new TextureFormat[]
+                {
+                TextureFormat.Depth16Unorm
+                }, label: "DepthBuffer");
+
+                depthBufferView?.Release();
+                depthBufferView = depthBuffer.Value.CreateView(TextureFormat.Depth16Unorm, TextureViewDimension.Dimension2D, 
+                    TextureAspect.All, baseMipLevel: 0, mipLevelCount: 1, baseArrayLayer: 0, arrayLayerCount: 1, 
+                    label: "DepthBuffer - View");
+            }
+
+            var swapchainView = swapchain!.Value.GetCurrentTextureView();
 
             var cmd = device.CreateCommandEncoder();
 
@@ -466,7 +448,7 @@ namespace Instancing
                 new(swapchainView, resolveTarget: null,
                 LoadOp.Clear, StoreOp.Store, new Color(.6, .9, 1, 1))
             }, Span<Safe.RenderPassTimestampWrite>.Empty, 
-            new Safe.RenderPassDepthStencilAttachment(depthBufferView, LoadOp.Clear, StoreOp.Discard, 1f, false,
+            new Safe.RenderPassDepthStencilAttachment(depthBufferView!.Value, LoadOp.Clear, StoreOp.Discard, 1f, false,
                 /*stencil*/ LoadOp.Clear, StoreOp.Discard, 0, true),
             null);
 
@@ -556,7 +538,7 @@ namespace Instancing
 
             queue.Submit(new[] { cmd.Finish() });
 
-            swapchain.Present();
+            swapchain.Value.Present();
         }
     }
 }
