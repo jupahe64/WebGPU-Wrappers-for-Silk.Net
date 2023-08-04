@@ -653,7 +653,7 @@ namespace Silk.NET.WebGPU.Extensions.ImGui
                             }
                             else
                             {
-                                var textureView = new TextureViewPtr(_device.GetAPI(), (TextureView*)pcmd.TextureId); //TODO
+                                var textureView = new TextureViewPtr(_device.GetAPI(), (TextureView*)pcmd.TextureId);
 
                                 if (!_bindGroupsByView.TryGetValue(textureView, out BindGroupPtr bindGroup))
                                     bindGroup = CreateTextureBindGroupInternal(textureView);
