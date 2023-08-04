@@ -403,7 +403,7 @@ namespace Silk.NET.WebGPU.Safe
 
         public ShaderModulePtr CreateShaderModuleWGSL(
             string code,
-            ShaderModuleCompilationHint[] compilationHints, 
+            ReadOnlySpan<ShaderModuleCompilationHint> compilationHints, 
             string? label = null)
         {
             Span<byte> bytes = new byte[SilkMarshal.GetMaxSizeOf(code, NativeStringEncoding.UTF8)];
@@ -413,7 +413,7 @@ namespace Silk.NET.WebGPU.Safe
 
         public ShaderModulePtr CreateShaderModuleWGSL(
             ReadOnlySpan<byte> code,
-            ShaderModuleCompilationHint[] compilationHints, 
+            ReadOnlySpan<ShaderModuleCompilationHint> compilationHints, 
             string? label = null)
         {
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
