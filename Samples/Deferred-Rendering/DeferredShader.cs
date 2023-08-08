@@ -10,6 +10,7 @@ using static Silk.NET.WebGPU.Safe.BindGroupLayoutEntries;
 using static Silk.NET.WebGPU.Safe.BindGroupEntries;
 using Silk.NET.Maths;
 using System.Runtime.InteropServices;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace DeferredRendering
 {
@@ -50,7 +51,7 @@ namespace DeferredRendering
             _uniformBuffer = uniformBuffer;
         }
 
-        public static DeferredShader Create(DevicePtr device, TextureFormat outputFormat)
+        public static DeferredShader Create(DevicePtr device, TextureFormat lightTextureFormat)
         {
             var uniformBuffer = device.CreateBuffer(BufferUsage.CopyDst | BufferUsage.Uniform, (ulong)Marshal.SizeOf<Uniforms>());
 
@@ -190,7 +191,11 @@ namespace DeferredRendering
                     Module = module,
                     Targets = new Safe.ColorTargetState[]
                     {
-                        new Safe.ColorTargetState(outputFormat, null, ColorWriteMask.All),
+                        new Safe.ColorTargetState(lightTextureFormat, 
+                        (
+                            color: new BlendComponent(BlendOperation.Add, BlendFactor.One, BlendFactor.One), 
+                            alpha: new BlendComponent(BlendOperation.Add, BlendFactor.One, BlendFactor.Zero)
+                        ), ColorWriteMask.All),
                     }
                 }
                 );
@@ -224,7 +229,7 @@ namespace DeferredRendering
             var pass = cmd.BeginRenderPass(
                 new Safe.RenderPassColorAttachment[] 
                 { 
-                    new Safe.RenderPassColorAttachment(view: output, null, loadOp: LoadOp.Clear, storeOp: StoreOp.Store, 
+                    new Safe.RenderPassColorAttachment(view: output, null, loadOp: LoadOp.Load, storeOp: StoreOp.Store, 
                     clearValue: default)
                 }, timestampWrites: null, depthStencilAttachment: null, occlusionQuerySet: null);
 

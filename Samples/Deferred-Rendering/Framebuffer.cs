@@ -127,39 +127,44 @@ namespace DeferredRendering
         public uint Width => _framebuffer.Width;
         public uint Height => _framebuffer.Height;
 
-        public TextureFormat AlbedoFormat => _framebuffer.GetFormat(0);
-        public TextureFormat NormalFormat => _framebuffer.GetFormat(1);
+        public TextureFormat AlbedoChannelFormat => _framebuffer.GetFormat(0);
+        public TextureFormat NormalChannelFormat => _framebuffer.GetFormat(1);
+        public TextureFormat LightChannelFormat => _framebuffer.GetFormat(2);
         public TextureFormat DepthStencilFormat => _framebuffer.DepthStencilFormat!.Value;
 
-        private GBuffer(DevicePtr device,
-            TextureFormat albedoFormat, TextureFormat normalFormat, TextureFormat depthStencilFormat, string? label)
+        private GBuffer(Framebuffer framebuffer)
         {
-            _framebuffer = new Framebuffer(device, new (string name, TextureFormat format)[]
+            _framebuffer = framebuffer;
+        }
+
+        public static GBuffer Create(DevicePtr device, 
+            TextureFormat albedoFormat, TextureFormat normalFormat, TextureFormat lightFormat,
+            TextureFormat depthStencilFormat, uint width = 0, uint height = 0, string? label = null)
+        {
+            var framebuffer = new Framebuffer(device, new (string name, TextureFormat format)[]
             {
                 ("Albedo", albedoFormat),
                 ("Normal", normalFormat),
+                ("Light", lightFormat),
             }, depthStencilFormat, label);
+
+            var gbuffer = new GBuffer(framebuffer);
+
+            gbuffer.EnsureSize(width, height);
+
+            return gbuffer;
         }
 
-        public static GBuffer Create(DevicePtr device, TextureFormat albedoFormat, TextureFormat normalFormat, TextureFormat depthStencilFormat,
-            uint width = 0, uint height = 0, string? label = null)
-        {
-            var framebuffer = new GBuffer(device, albedoFormat, normalFormat, depthStencilFormat, label);
-
-            framebuffer.EnsureSize(width, height);
-
-            return framebuffer;
-        }
-
-        public bool TryGetViews(out TextureViewPtr albedoView, out TextureViewPtr normalView,
+        public bool TryGetViews(out TextureViewPtr albedoView, out TextureViewPtr normalView, out TextureViewPtr lightView,
             out TextureViewPtr depthStencilView, out TextureViewPtr depthOnlyView)
         {
-            var colorTargetViews = new TextureViewPtr[2];
+            var colorTargetViews = new TextureViewPtr[3];
             if (!_framebuffer.TryGetViews(colorTargetViews, 
                 out TextureViewPtr? _depthStencilView, out TextureViewPtr? _depthOnlyView))
             {
                 albedoView = default;
                 normalView = default;
+                lightView = default;
                 depthStencilView = default;
                 depthOnlyView = default;
                 return false;
@@ -167,6 +172,7 @@ namespace DeferredRendering
 
             albedoView = colorTargetViews[0];
             normalView = colorTargetViews[1];
+            lightView = colorTargetViews[2];
             depthStencilView = _depthStencilView!.Value;
             depthOnlyView = _depthOnlyView!.Value;
 
@@ -189,23 +195,24 @@ namespace DeferredRendering
         public TextureFormat ColorTargetFormat => _framebuffer.GetFormat(0);
         public TextureFormat? DepthStencilFormat => _framebuffer.DepthStencilFormat;
 
-        private RenderTexture(DevicePtr device,
-            TextureFormat colorTargetFormat, TextureFormat? depthStencilFormat, string? label)
+        private RenderTexture(Framebuffer framebuffer)
         {
-            _framebuffer = new Framebuffer(device, new (string name, TextureFormat format)[]
-            {
-                ("Color", colorTargetFormat),
-            }, depthStencilFormat, label);
+            _framebuffer = framebuffer;
         }
 
         public static RenderTexture Create(DevicePtr device, TextureFormat colorFormat, TextureFormat? depthStencilFormat,
             uint width = 0, uint height = 0, string? label = null)
         {
-            var framebuffer = new RenderTexture(device, colorFormat, depthStencilFormat, label);
+            var framebuffer = new Framebuffer(device, new (string name, TextureFormat format)[]
+            {
+                ("Color", colorFormat),
+            }, depthStencilFormat, label);
 
-            framebuffer.EnsureSize(width, height);
+            var renderTexture = new RenderTexture(framebuffer);
 
-            return framebuffer;
+            renderTexture.EnsureSize(width, height);
+
+            return renderTexture;
         }
 
         public bool TryGetViews(out TextureViewPtr colorTargetView,

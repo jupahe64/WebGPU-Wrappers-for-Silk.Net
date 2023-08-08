@@ -15,7 +15,8 @@ namespace DeferredRendering
             out Span<Vector3> positions,
             out Span<Vector3> normals,
             out Span<Vector3> tangents,
-            out Span<Vector2> texCoords)
+            out Span<Vector2> texCoords,
+            out Span<Vector2> texCoords2)
         {
             var assimp = Assimp.GetApi();
 
@@ -27,7 +28,7 @@ namespace DeferredRendering
             if(scene == null)
                 throw new Exception($"model could not be loaded");
 
-            LoadModel(scene, out indices, out positions, out normals, out tangents, out texCoords);
+            LoadModel(scene, out indices, out positions, out normals, out tangents, out texCoords, out texCoords2);
 
             assimp.FreeScene(scene);
         }
@@ -37,7 +38,8 @@ namespace DeferredRendering
             out Span<Vector3> positions,
             out Span<Vector3> normals,
             out Span<Vector3> tangents,
-            out Span<Vector2> texCoords)
+            out Span<Vector2> texCoords,
+            out Span<Vector2> texCoords2)
         {
             var assimp = Assimp.GetApi();
 
@@ -46,7 +48,7 @@ namespace DeferredRendering
             if (scene == null)
                 throw new Exception($"model could not be loaded");
 
-            LoadModel(scene, out indices, out positions, out normals, out tangents, out texCoords);
+            LoadModel(scene, out indices, out positions, out normals, out tangents, out texCoords, out texCoords2);
 
             assimp.FreeScene(scene);
         }
@@ -56,7 +58,8 @@ namespace DeferredRendering
             out Span<Vector3> positions, 
             out Span<Vector3> normals,
             out Span<Vector3> tangents,
-            out Span<Vector2> texCoords)
+            out Span<Vector2> texCoords,
+            out Span<Vector2> texCoords2)
         {
             var indexList = new List<uint>();
 
@@ -69,6 +72,7 @@ namespace DeferredRendering
             normals = new Vector3[totalNumVertices];
             tangents = new Vector3[totalNumVertices];
             texCoords = new Vector2[totalNumVertices];
+            texCoords2 = new Vector2[totalNumVertices];
 
             uint accumulatedVertexCount = 0;
 
@@ -112,6 +116,13 @@ namespace DeferredRendering
                     {
                         var sourceSpan = new ReadOnlySpan<Vector3>(mesh->MTextureCoords.Element0, (int)mesh->MNumVertices);
                         var destSpan = texCoords[(int)accumulatedVertexCount..];
+                        for (int i = 0; i < sourceSpan.Length; i++)
+                            destSpan[i] = new(sourceSpan[i].X, sourceSpan[i].Y);
+                    }
+
+                    {
+                        var sourceSpan = new ReadOnlySpan<Vector3>(mesh->MTextureCoords.Element1, (int)mesh->MNumVertices);
+                        var destSpan = texCoords2[(int)accumulatedVertexCount..];
                         for (int i = 0; i < sourceSpan.Length; i++)
                             destSpan[i] = new(sourceSpan[i].X, sourceSpan[i].Y);
                     }

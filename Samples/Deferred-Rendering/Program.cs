@@ -34,28 +34,30 @@ namespace DeferredRendering
         private static BufferRange indexBuffer;
         private static SamplerPtr linearSampler;
         private static BufferRange sceneUniformBuffer;
-        private static SceneLights lights = new();
+        private static readonly SceneLights lights = new();
         private static BufferRange lightsBuffer;
         private static BindGroupPtr sceneBindGroup;
         private static BufferRange modelUniformBuffer;
         private static BindGroupLayoutPtr modelBindGroupLayout;
-        private static BindGroupPtr modelBindGroup;
+        private static BindGroupPtr? modelBindGroup;
         private static ImFontPtr imguiDefaultFont;
         private static ImFontPtr quicksandFont;
         private static ImGuiController? imguiController;
         private static GBuffer? sceneGBuffer;
-        private static RenderTexture? sceneViewport;
         private static SurfacePtr surface;
 
         private static (TexturePtr tex, TextureViewPtr view) modelTextureAlbedo;
         private static (TexturePtr tex, TextureViewPtr view) modelTextureNormal;
+        private static (TexturePtr tex, TextureViewPtr view) modelTextureEmission;
         private static Vector3 albedoColor = Vector3.One;
+        private static Vector3 emissionColor = Vector3.One;
         private static float normalMapStrength = 1.0f;
 
         struct Vertex
         {
             public Vector3 Position;
             public Vector2 TexCoord;
+            public Vector2 TexCoord2;
             public Vector3 Normal;
             public Vector3 Tangent;
         }
@@ -63,7 +65,9 @@ namespace DeferredRendering
         struct ModelUB
         {
             public Matrix4X4<float> Transform;
-            public Vector3D<float> Color;
+            public Vector3D<float> Tex0Color;
+            private uint _padding0;
+            public Vector3D<float> Tex1Color;
             public float NormalMapStrength;
         }
 
@@ -115,7 +119,8 @@ namespace DeferredRendering
                 out Span<Vector3> positions,
                 out Span<Vector3> normals,
                 out Span<Vector3> tangents,
-                out Span<Vector2> texCoords);
+                out Span<Vector2> texCoords,
+                out Span<Vector2> texCoords2);
 
             var modelVertices = new Vertex[positions.Length];
 
@@ -123,6 +128,7 @@ namespace DeferredRendering
             {
                 modelVertices[i].Position = positions[i];
                 modelVertices[i].TexCoord = texCoords[i];
+                modelVertices[i].TexCoord2 = texCoords2[i];
                 modelVertices[i].Normal = normals[i];
                 modelVertices[i].Tangent = tangents[i];
             }
@@ -251,8 +257,9 @@ namespace DeferredRendering
             io.ConfigFlags |= ImGuiConfigFlags.DockingEnable;         // Enable Docking
             io.ConfigFlags |= ImGuiConfigFlags.ViewportsEnable;       // Enable Multi-Viewport / Platform Windows
 
-            sceneGBuffer = GBuffer.Create(device, TextureFormat.Rgba8Unorm, TextureFormat.Rgb10A2Unorm, TextureFormat.Depth24Plus, label: "SceneGBuffer");
-            sceneViewport = RenderTexture.Create(device, TextureFormat.Rgba8Unorm, null, label: "SceneFinalTarget");
+            sceneGBuffer = GBuffer.Create(device,
+                TextureFormat.Rgba8Unorm, TextureFormat.Rgb10A2Unorm, TextureFormat.Rgba32float, TextureFormat.Depth24Plus,
+                label: "SceneGBuffer");
 
             var sceneBindGroupLayout = device.CreateBindGroupLayout(
                 new BindGroupLayoutEntry[]
@@ -268,7 +275,8 @@ namespace DeferredRendering
                     Buffer(0, ShaderStage.Vertex | ShaderStage.Fragment, BufferBindingType.Uniform, (ulong)Unsafe.SizeOf<ModelUB>()),
                     Sampler(1, ShaderStage.Fragment, SamplerBindingType.Filtering),
                     Texture(2, ShaderStage.Fragment, TextureSampleType.Float, TextureViewDimension.Dimension2D, multisampled: false),
-                    Texture(3, ShaderStage.Fragment, TextureSampleType.Float, TextureViewDimension.Dimension2D, multisampled: false)
+                    Texture(3, ShaderStage.Fragment, TextureSampleType.Float, TextureViewDimension.Dimension2D, multisampled: false),
+                    Texture(4, ShaderStage.Fragment, TextureSampleType.Float, TextureViewDimension.Dimension2D, multisampled: false)
                 },
                 label: "ModelBindGroupLayout"
             );
@@ -296,6 +304,12 @@ namespace DeferredRendering
                     label: "TempleStone_nrm.png");
             }
 
+            using (var fileStream = File.Open(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TempleStone_emm.png"), FileMode.Open))
+            {
+                modelTextureEmission = CreateTextureFromRGBAImage(TextureUsage.TextureBinding, fileStream,
+                    label: "TempleStone_emm.png");
+            }
+
             linearSampler = device.CreateSampler(AddressMode.Repeat, AddressMode.Repeat, AddressMode.ClampToEdge,
                 minFilter: FilterMode.Linear, magFilter: FilterMode.Linear, mipmapFilter: MipmapFilterMode.Linear,
                 lodMinClamp: 0, lodMaxClamp: 1, compare: CompareFunction.Undefined, label: "LinearSampler");
@@ -306,7 +320,7 @@ namespace DeferredRendering
                 label: "SceneUniformBuffer"),
                 0, (ulong)Unsafe.SizeOf<Matrix4X4<float>>());
 
-            lightsBuffer = CreateBufferWithData(BufferUsage.Storage | BufferUsage.CopyDst, 
+            lightsBuffer = CreateBufferWithData(BufferUsage.Storage | BufferUsage.CopyDst,
                 lights.LightData, label: "LightsBuffer");
 
             sceneBindGroup = device.CreateBindGroup(
@@ -323,17 +337,7 @@ namespace DeferredRendering
                 label: "ModelUniformBuffer"),
                 0, (ulong)Unsafe.SizeOf<ModelUB>());
 
-            modelBindGroup = device.CreateBindGroup(
-                bindGroupLayout: modelBindGroupLayout,
-                new BindGroupEntry[]
-                {
-                    Buffer(0, modelUniformBuffer.Buffer, modelUniformBuffer.Offset, modelUniformBuffer.Size),
-                    Sampler(1, linearSampler),
-                    Texture(2, modelTextureAlbedo.view),
-                    Texture(3, modelTextureNormal.view),
-                },
-                label: "ModelBindGroup"
-            );
+            RecreateModelBindgroup();
 
             Console.WriteLine("Compiling Shader");
 
@@ -364,9 +368,11 @@ namespace DeferredRendering
                                     (uint)Marshal.OffsetOf<Vertex>(nameof(Vertex.Position))),
                                 new(VertexFormat.Float32x2, shaderLocation: 1, offset:
                                     (uint)Marshal.OffsetOf<Vertex>(nameof(Vertex.TexCoord))),
-                                new(VertexFormat.Float32x3, shaderLocation: 2, offset:
-                                    (uint)Marshal.OffsetOf<Vertex>(nameof(Vertex.Normal))),
+                                new(VertexFormat.Float32x2, shaderLocation: 2, offset:
+                                    (uint)Marshal.OffsetOf<Vertex>(nameof(Vertex.TexCoord2))),
                                 new(VertexFormat.Float32x3, shaderLocation: 3, offset:
+                                    (uint)Marshal.OffsetOf<Vertex>(nameof(Vertex.Normal))),
+                                new(VertexFormat.Float32x3, shaderLocation: 4, offset:
                                     (uint)Marshal.OffsetOf<Vertex>(nameof(Vertex.Tangent))),
                             }
                         )
@@ -400,12 +406,17 @@ namespace DeferredRendering
                     Targets = new Safe.ColorTargetState[]
                     {
                         new(
-                            sceneGBuffer.AlbedoFormat,
+                            sceneGBuffer.AlbedoChannelFormat,
                             blendState: null,
                             ColorWriteMask.All
                         ),
                         new(
-                            sceneGBuffer.NormalFormat,
+                            sceneGBuffer.NormalChannelFormat,
+                            blendState: null,
+                            ColorWriteMask.All
+                        ),
+                        new(
+                            sceneGBuffer.LightChannelFormat,
                             blendState: null,
                             ColorWriteMask.All
                         )
@@ -415,15 +426,32 @@ namespace DeferredRendering
 
             Console.WriteLine("Creating Vertex and Index-Buffer");
 
-            (vertexBuffer, indexBuffer) = CreateModelBuffers(Path.Combine(AppContext.BaseDirectory, "TempleModel.glb"), 
+            (vertexBuffer, indexBuffer) = CreateModelBuffers(Path.Combine(AppContext.BaseDirectory, "TempleModel.glb"),
                 "TempleModel.glb");
 
 
             Console.WriteLine("Create Deferred Shading Shader+Pipeline");
 
-            deferredShader = DeferredShader.Create(device, TextureFormat.Rgba8Unorm);
+            deferredShader = DeferredShader.Create(device, sceneGBuffer.LightChannelFormat);
 
             Console.WriteLine("Done");
+        }
+
+        private static void RecreateModelBindgroup()
+        {
+            modelBindGroup?.Release();
+            modelBindGroup = device.CreateBindGroup(
+                            bindGroupLayout: modelBindGroupLayout,
+                            new BindGroupEntry[]
+                            {
+                    Buffer(0, modelUniformBuffer.Buffer, modelUniformBuffer.Offset, modelUniformBuffer.Size),
+                    Sampler(1, linearSampler),
+                    Texture(2, modelTextureAlbedo.view),
+                    Texture(3, modelTextureNormal.view),
+                    Texture(4, modelTextureEmission.view),
+                            },
+                            label: "ModelBindGroup"
+                        );
         }
 
         private static void W_Update(double deltaTime)
@@ -433,7 +461,8 @@ namespace DeferredRendering
         }
 
         private static void RenderScene(CommandEncoderPtr cmd, QueuePtr queue, TextureViewPtr albedoTarget,
-            TextureViewPtr normalTarget, TextureViewPtr depthStencilTarget, float aspectRatio, out Matrix4X4<float> ViewProjectionMatrix)
+            TextureViewPtr normalTarget, TextureViewPtr emissionTarget, 
+            TextureViewPtr depthStencilTarget, float aspectRatio, out Matrix4X4<float> ViewProjectionMatrix)
         {
             float time = (float)window!.Time;
 
@@ -453,7 +482,8 @@ namespace DeferredRendering
                     Transform =
                     Matrix4X4<float>.Identity,
 
-                    Color = SystemNumericsExtensions.ToGeneric(albedoColor),
+                    Tex0Color = SystemNumericsExtensions.ToGeneric(albedoColor),
+                    Tex1Color = SystemNumericsExtensions.ToGeneric(emissionColor),
                     NormalMapStrength = normalMapStrength
                 }));
 
@@ -462,9 +492,11 @@ namespace DeferredRendering
             var pass = cmd.BeginRenderPass(new Safe.RenderPassColorAttachment[]
             {
                 new(albedoTarget, resolveTarget: null,
-                LoadOp.Clear, StoreOp.Store, new Color(.0, .0, .1, 1)),
+                LoadOp.Clear, StoreOp.Store, new Color(0, 0, 0, 1)),
                 new(normalTarget, resolveTarget: null,
-                LoadOp.Clear, StoreOp.Store, new Color(0, 0, 0, 1))
+                LoadOp.Clear, StoreOp.Store, new Color(0, 0, 0, 1)),
+                new(emissionTarget, resolveTarget: null,
+                LoadOp.Clear, StoreOp.Store, new Color(0, 0, 0.1, 1))
             }, null,
             new Safe.RenderPassDepthStencilAttachment(depthStencilTarget, LoadOp.Clear, StoreOp.Store, 1f, false,
                 /*stencil*/ LoadOp.Clear, StoreOp.Discard, 0, true),
@@ -478,7 +510,7 @@ namespace DeferredRendering
             pass.SetIndexBuffer(indexBuffer.Buffer, IndexFormat.Uint32, indexBuffer.Offset, indexBuffer.Size);
 
             pass.SetBindGroup(0, sceneBindGroup, ReadOnlySpan<uint>.Empty);
-            pass.SetBindGroup(1, modelBindGroup, ReadOnlySpan<uint>.Empty);
+            pass.SetBindGroup(1, modelBindGroup!.Value, ReadOnlySpan<uint>.Empty);
 
             pass.DrawIndexed((uint)(indexBuffer.Size / (uint)sizeof(uint)), 1, 0, 0, 0);
 
@@ -487,6 +519,7 @@ namespace DeferredRendering
 
         private static Vector2D<int> _last_framebufferSize = new(0,0);
         private static (TexturePtr tex, TextureViewPtr view)? requestedAlbedoTexture = null;
+        private static (TexturePtr tex, TextureViewPtr view)? requestedEmissionTexture = null;
         private static DeferredShader? deferredShader;
 
         private static void W_Render(double deltaTime)
@@ -526,18 +559,17 @@ namespace DeferredRendering
                 modelTextureAlbedo = requestedAlbedoTexture.Value;
                 requestedAlbedoTexture = null;
 
-                modelBindGroup.Release();
-                modelBindGroup = device.CreateBindGroup(
-                    bindGroupLayout: modelBindGroupLayout,
-                    new BindGroupEntry[]
-                    {
-                                Buffer(0, modelUniformBuffer.Buffer, modelUniformBuffer.Offset, modelUniformBuffer.Size),
-                                Sampler(1, linearSampler),
-                                Texture(2, modelTextureAlbedo.view),
-                                Texture(3, modelTextureNormal.view),
-                    },
-                    label: "ModelBindGroup"
-                );
+                RecreateModelBindgroup();
+            }
+            if (requestedEmissionTexture != null)
+            {
+                modelTextureEmission.tex.Destroy();
+                modelTextureEmission.view.Release();
+
+                modelTextureEmission = requestedEmissionTexture.Value;
+                requestedEmissionTexture = null;
+
+                RecreateModelBindgroup();
             }
 
 
@@ -554,27 +586,24 @@ namespace DeferredRendering
                 var size = ImGui.GetContentRegionAvail();
                 uint width = (uint)size.X, height = (uint)Math.Max(0, size.Y);
 
-                uint prevWidth = sceneViewport!.Width;
-                uint prevHeight = sceneViewport!.Height;
+                uint prevWidth = sceneGBuffer!.Width;
+                uint prevHeight = sceneGBuffer!.Height;
 
                 sceneGBuffer!.EnsureSize(width, height);
-                sceneViewport!.EnsureSize(width, height);
-                if (
-                    sceneGBuffer!.TryGetViews(out var albedo, out var normal, out var depthStencil, out var depth) &&
-                    sceneViewport!.TryGetViews(out var colorTarget, out _, out _))
+                if (sceneGBuffer!.TryGetViews(out var albedo, out var normal, out var emission, out var depthStencil, out var depth))
                 {
-                    RenderScene(cmd, queue, albedo, normal, depthStencil, (float)width / height, out Matrix4X4<float> ViewProjection);
+                    RenderScene(cmd, queue, albedo, normal, emission, depthStencil, (float)width / height, out Matrix4X4<float> ViewProjection);
 
                     if (!Matrix4X4.Invert(ViewProjection, out Matrix4X4<float> InvViewProjection))
                         throw new InvalidOperationException("ViewProjection Matrix could not be inverted");
 
-                    deferredShader!.Apply(cmd, queue, albedo, normal, depth, colorTarget, InvViewProjection, 
+                    deferredShader!.Apply(cmd, queue, albedo, normal, depth, emission, InvViewProjection, 
                         lightsBuffer.Buffer, lights.LightCount);
 
                     if (prevWidth!=width && prevHeight!=height)
-                        imguiController!.RemoveTextureBindGroup(colorTarget);
+                        imguiController!.RemoveTextureBindGroup(emission);
 
-                    ImGui.Image(colorTarget.GetIntPtr(),
+                    ImGui.Image(emission.GetIntPtr(),
                         new Vector2(width, height));
                 }
                 ImGui.End();
@@ -586,11 +615,11 @@ namespace DeferredRendering
                 ImGui.Columns(2, null, false);
                 float y = ImGui.GetCursorPosY();
                 ImGui.SetCursorPosY(y + ImGui.GetStyle().FramePadding.Y);
-                ImGui.Text("Texture");
+                ImGui.Text("Albedo");
                 ImGui.NextColumn();
                 ImGui.SetCursorPosY(y);
                 var imageButtonSize = ImGui.GetContentRegionAvail().X;
-                if (ImGui.ImageButton("ChooseTexture", modelTextureAlbedo.view.GetIntPtr(), new(imageButtonSize)))
+                if (ImGui.ImageButton("ChooseTextureAlbedo", modelTextureAlbedo.view.GetIntPtr(), new(imageButtonSize)))
                 {
                     var result = Nfd.FileOpen(new NfdFilter[]
                     {
@@ -605,16 +634,47 @@ namespace DeferredRendering
                     }
                 }
                 ImGui.NextColumn();
-                ImGui.Spacing();
-                ImGui.Separator();
-                ImGui.Spacing();
-                ImGui.Text("Tint");
+
+                ImGui.Spacing(); ImGui.Separator(); ImGui.Spacing();
+
+                ImGui.Text("Albedo tint");
                 ImGui.NextColumn();
-                ImGui.ColorEdit3("##Tint", ref albedoColor, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoAlpha);
+                ImGui.ColorEdit3("##AlbedoTint", ref albedoColor, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoAlpha);
                 ImGui.NextColumn();
-                ImGui.Spacing();
-                ImGui.Separator();
-                ImGui.Spacing();
+
+                ImGui.Spacing(); ImGui.Separator(); ImGui.Spacing();
+
+                y = ImGui.GetCursorPosY();
+                ImGui.SetCursorPosY(y + ImGui.GetStyle().FramePadding.Y);
+                ImGui.Text("Emission");
+                ImGui.NextColumn();
+                ImGui.SetCursorPosY(y);
+                imageButtonSize = ImGui.GetContentRegionAvail().X;
+                if (ImGui.ImageButton("ChooseTextureEmission", modelTextureEmission.view.GetIntPtr(), new(imageButtonSize)))
+                {
+                    var result = Nfd.FileOpen(new NfdFilter[]
+                    {
+                        new NfdFilter { Description="Image files", Specification="png,jpg,jpeg,bmp" }
+                    });
+
+                    if (result.Status == NfdStatus.Ok)
+                    {
+                        using var stream = new FileStream(result.Path, FileMode.Open);
+
+                        requestedEmissionTexture = CreateTextureFromRGBAImage(TextureUsage.TextureBinding, stream);
+                    }
+                }
+                ImGui.NextColumn();
+
+                ImGui.Spacing(); ImGui.Separator(); ImGui.Spacing();
+
+                ImGui.Text("Emission tint");
+                ImGui.NextColumn();
+                ImGui.ColorEdit3("##EmissionTint", ref emissionColor, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoAlpha);
+                ImGui.NextColumn();
+
+                ImGui.Spacing(); ImGui.Separator(); ImGui.Spacing();
+
                 ImGui.Text("Normal-Map strength");
                 ImGui.NextColumn();
                 ImGui.SliderFloat("##NormalMapStrength", ref normalMapStrength, 0, 1);

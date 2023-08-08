@@ -17,6 +17,7 @@
     <None Remove="Quicksand-SemiBold.ttf" />
     <None Remove="shader.wgsl" />
     <None Remove="TempleModel.glb" />
+    <None Remove="TempleStone_emm.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -54,6 +55,9 @@
 	</Content>
 	<Content Include="TempleStone_alb.png">
 		<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</Content>
+	<Content Include="TempleStone_emm.png">
+	  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	</Content>
 	<Content Include="TempleStone_nrm.png">
 		<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
