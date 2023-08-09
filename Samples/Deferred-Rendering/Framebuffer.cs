@@ -3,6 +3,7 @@
 using Silk.NET.WebGPU.Safe;
 using System;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace DeferredRendering
 {
@@ -34,18 +35,29 @@ namespace DeferredRendering
             this.label = label;
 
             _colorTargets = Array.ConvertAll<(string name, TextureFormat format), ColorTarget>(
-                colorTargets, 
+                colorTargets,
                 x => new(x.name, x.format, null, null)
             );
 
-            if(depthStencilFormat is TextureFormat format)
+            if (depthStencilFormat is TextureFormat format)
                 _depthStencil = new(format, null, null, null);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGetColorView(int index, out TextureViewPtr view)
+        {
+            if (_width * _height == 0)
+            {
+                view = default;
+                return false;
+            }
 
+            view = _colorTargets[index].View!.Value;
 
-        public bool TryGetViews(Span<TextureViewPtr> colorTargetViewsDest,
-            out TextureViewPtr? depthStencilView, out TextureViewPtr? depthOnlyView)
+            return true;
+        }
+
+        public bool TryGetDepthViews(out TextureViewPtr? depthStencilView, out TextureViewPtr? depthOnlyView)
         {
             if (_width * _height == 0)
             {
@@ -53,9 +65,6 @@ namespace DeferredRendering
                 depthOnlyView = default;
                 return false;
             }
-
-            for (int i = 0; i < _colorTargets.Length; i++)
-                colorTargetViewsDest[i] = _colorTargets[i].View!.Value;
 
             depthStencilView = _depthStencil?.View;
             depthOnlyView = _depthStencil?.DepthOnlyView;
@@ -95,7 +104,7 @@ namespace DeferredRendering
                     label: label == null ? null : $"{label}:{target.Name} - View");
             }
 
-                
+
             if (_depthStencil is not null)
             {
                 var target = _depthStencil.Value;
@@ -116,123 +125,7 @@ namespace DeferredRendering
 
                 _depthStencil = target;
             }
-            
-        }
-    }
 
-    class GBuffer
-    {
-        Framebuffer _framebuffer;
-
-        public uint Width => _framebuffer.Width;
-        public uint Height => _framebuffer.Height;
-
-        public TextureFormat AlbedoChannelFormat => _framebuffer.GetFormat(0);
-        public TextureFormat NormalChannelFormat => _framebuffer.GetFormat(1);
-        public TextureFormat LightChannelFormat => _framebuffer.GetFormat(2);
-        public TextureFormat DepthStencilFormat => _framebuffer.DepthStencilFormat!.Value;
-
-        private GBuffer(Framebuffer framebuffer)
-        {
-            _framebuffer = framebuffer;
-        }
-
-        public static GBuffer Create(DevicePtr device, 
-            TextureFormat albedoFormat, TextureFormat normalFormat, TextureFormat lightFormat,
-            TextureFormat depthStencilFormat, uint width = 0, uint height = 0, string? label = null)
-        {
-            var framebuffer = new Framebuffer(device, new (string name, TextureFormat format)[]
-            {
-                ("Albedo", albedoFormat),
-                ("Normal", normalFormat),
-                ("Light", lightFormat),
-            }, depthStencilFormat, label);
-
-            var gbuffer = new GBuffer(framebuffer);
-
-            gbuffer.EnsureSize(width, height);
-
-            return gbuffer;
-        }
-
-        public bool TryGetViews(out TextureViewPtr albedoView, out TextureViewPtr normalView, out TextureViewPtr lightView,
-            out TextureViewPtr depthStencilView, out TextureViewPtr depthOnlyView)
-        {
-            var colorTargetViews = new TextureViewPtr[3];
-            if (!_framebuffer.TryGetViews(colorTargetViews, 
-                out TextureViewPtr? _depthStencilView, out TextureViewPtr? _depthOnlyView))
-            {
-                albedoView = default;
-                normalView = default;
-                lightView = default;
-                depthStencilView = default;
-                depthOnlyView = default;
-                return false;
-            }
-
-            albedoView = colorTargetViews[0];
-            normalView = colorTargetViews[1];
-            lightView = colorTargetViews[2];
-            depthStencilView = _depthStencilView!.Value;
-            depthOnlyView = _depthOnlyView!.Value;
-
-            return true;
-        }
-
-        public void EnsureSize(uint width, uint height)
-        {
-            _framebuffer.EnsureSize(width, height);
-        }
-    }
-
-    class RenderTexture
-    {
-        Framebuffer _framebuffer;
-
-        public uint Width => _framebuffer.Width;
-        public uint Height => _framebuffer.Height;
-
-        public TextureFormat ColorTargetFormat => _framebuffer.GetFormat(0);
-        public TextureFormat? DepthStencilFormat => _framebuffer.DepthStencilFormat;
-
-        private RenderTexture(Framebuffer framebuffer)
-        {
-            _framebuffer = framebuffer;
-        }
-
-        public static RenderTexture Create(DevicePtr device, TextureFormat colorFormat, TextureFormat? depthStencilFormat,
-            uint width = 0, uint height = 0, string? label = null)
-        {
-            var framebuffer = new Framebuffer(device, new (string name, TextureFormat format)[]
-            {
-                ("Color", colorFormat),
-            }, depthStencilFormat, label);
-
-            var renderTexture = new RenderTexture(framebuffer);
-
-            renderTexture.EnsureSize(width, height);
-
-            return renderTexture;
-        }
-
-        public bool TryGetViews(out TextureViewPtr colorTargetView,
-            out TextureViewPtr? depthStencilView, out TextureViewPtr? depthOnlyView)
-        {
-            var colorTargetViews = new TextureViewPtr[1];
-            if (!_framebuffer.TryGetViews(colorTargetViews, out depthStencilView, out depthOnlyView))
-            {
-                colorTargetView = default;
-                return false;
-            }
-
-            colorTargetView = colorTargetViews[0];
-
-            return true;
-        }
-
-        public void EnsureSize(uint width, uint height)
-        {
-            _framebuffer.EnsureSize(width, height);
         }
     }
 }
