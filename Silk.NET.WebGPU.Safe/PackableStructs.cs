@@ -1,4 +1,6 @@
 using System;
+using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Xml.Linq;
 using Silk.NET.Core.Attributes;
@@ -7,6 +9,103 @@ using WGPU = Silk.NET.WebGPU;
 
 namespace Silk.NET.WebGPU.Safe
 {
+    internal unsafe struct PayloadSizeTracker
+    {
+        private int _payloadSize;
+        private int _stringPoolSize;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void AddStruct<T>() where T : unmanaged
+        {
+            _payloadSize += sizeof(T);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void AddOptional<T>(bool isPresent) where T : unmanaged
+        {
+            _payloadSize += isPresent ? sizeof(T) : 0;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void AddOptional<T>(T? value) where T : unmanaged
+        {
+            _payloadSize += value.HasValue ? sizeof(T) : 0;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void AddArray<T>(int count) where T : unmanaged
+        {
+            _payloadSize += sizeof(T) * count;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void AddString(string? str, NativeStringEncoding encoding)
+        {
+            _stringPoolSize += SilkMarshal.GetMaxSizeOf(str, encoding);
+        }
+
+        public readonly void GetSize(out int size, out int stringPoolOffset)
+        {
+            size = _payloadSize + _stringPoolSize;
+            stringPoolOffset = _payloadSize;
+        }
+    }
+
+    internal unsafe struct PayloadAllocator
+    {
+        private byte* _payloadPtr;
+        private byte* _stringPoolPtr;
+        private byte* _payloadEnd;
+
+        public PayloadAllocator(int totalSize, byte* payloadPtr, byte* stringPoolPtr) : this()
+        {
+            _payloadPtr = payloadPtr;
+            _stringPoolPtr = stringPoolPtr;
+            _payloadEnd = payloadPtr + totalSize;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public T* AddStruct<T>() where T : unmanaged
+        {
+            var ptr = (T*)_payloadPtr;
+            _payloadPtr += sizeof(T);
+            return ptr;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public T* AddOptional<T>(in T? value) where T : unmanaged
+        {
+            if (value is null)
+                return null;
+
+            var ptr = (T*)_payloadPtr;
+            *ptr = value!.Value;
+            _payloadPtr += sizeof(T);
+            return ptr;
+
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public T* AddArray<T>(int count) where T : unmanaged
+        {
+            var ptr = (T*)_payloadPtr;
+            _payloadPtr += sizeof(T) * count;
+            return ptr;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public byte* AddString(string? str, NativeStringEncoding encoding)
+        {
+            var ptr = _stringPoolPtr;
+
+            SilkMarshal.StringIntoSpan(str, 
+                new Span<byte>(_stringPoolPtr, (int)(_payloadEnd - _stringPoolPtr)));
+            _stringPoolPtr += SilkMarshal.GetMaxSizeOf(str, encoding);
+
+            return ptr;
+        }
+    }
+
     public unsafe struct ProgrammableStage
     {
         public ShaderModulePtr Module;
@@ -21,50 +120,30 @@ namespace Silk.NET.WebGPU.Safe
             Constants = constants;
         }
         
-        internal int CalculatePayloadSize()
+        internal readonly void CalculatePayloadSize(ref PayloadSizeTracker payloadSize)
         {
-            int size = SilkMarshal.GetMaxSizeOf(EntryPoint, NativeStringEncoding.UTF8)+1;
-            size += sizeof(ConstantEntry) * Constants.Length;
+            payloadSize.AddString(EntryPoint, NativeStringEncoding.UTF8);
+            payloadSize.AddArray<ConstantEntry>(Constants.Length);
             for (int i = 0; i < Constants.Length; i++)
             {
-                size += SilkMarshal.GetMaxSizeOf(Constants[i].key, NativeStringEncoding.UTF8);
+                payloadSize.AddString(Constants[i].key, NativeStringEncoding.UTF8);
             }
-            return size;
         }
 
-        internal int PackInto(ref ProgrammableStageDescriptor baseStruct, Span<byte> payloadBuffer)
+        internal readonly void PackInto(ref ProgrammableStageDescriptor baseStruct, ref PayloadAllocator payload)
         {
-            int payloadSize;
+            baseStruct.Module = Module;
+            baseStruct.ConstantCount = (uint)Constants.Length;
+            baseStruct.Constants = payload.AddArray<ConstantEntry>(Constants.Length);
 
-            fixed(byte* startPtr = payloadBuffer)
+            baseStruct.EntryPoint = payload.AddString(EntryPoint, NativeStringEncoding.UTF8);
+                
+
+            for (int i = 0; i < Constants.Length; i++)
             {
-                var ptr = startPtr;
-
-                var constants = (ConstantEntry*)ptr;
-                ptr += sizeof(ConstantEntry) * Constants.Length;
-
-                baseStruct.Module = Module;
-                baseStruct.ConstantCount = (uint)Constants.Length;
-                baseStruct.Constants = constants;
-
-                baseStruct.EntryPoint = ptr;
-                
-                ptr += SilkMarshal.StringIntoSpan(EntryPoint, payloadBuffer[(int) (ptr - startPtr)..], 
-                    NativeStringEncoding.UTF8);
-                
-
-                for (int i = 0; i < Constants.Length; i++)
-                {
-                    constants[i].Key = ptr;
-                    ptr += SilkMarshal.StringIntoSpan(Constants[i].key, payloadBuffer[(int)(ptr - startPtr)..], 
-                        NativeStringEncoding.UTF8);
-
-                    constants[i].Value = Constants[i].value;
-                }
-
-                payloadSize = (int)(ptr - startPtr);
+                baseStruct.Constants[i].Key = payload.AddString(Constants[i].key, NativeStringEncoding.UTF8);
+                baseStruct.Constants[i].Value = Constants[i].value;
             }
-            return payloadSize;
         }
     }
 
@@ -84,62 +163,38 @@ namespace Silk.NET.WebGPU.Safe
             Buffers = buffers;
         }
 
-        internal int CalculatePayloadSize()
+        internal readonly void CalculatePayloadSize(ref PayloadSizeTracker payloadSize)
         {
-            int size = SilkMarshal.GetMaxSizeOf(EntryPoint, NativeStringEncoding.UTF8);
-            size += sizeof(ConstantEntry) * Constants.Length;
+            payloadSize.AddString(EntryPoint, NativeStringEncoding.UTF8);
+            payloadSize.AddArray<ConstantEntry>(Constants.Length);
             for (int i = 0; i < Constants.Length; i++)
-                size += SilkMarshal.GetMaxSizeOf(Constants[i].key, NativeStringEncoding.UTF8);
+                payloadSize.AddString(Constants[i].key, NativeStringEncoding.UTF8);
 
-            size += sizeof(WGPU.VertexBufferLayout) * Buffers.Length;
+            payloadSize.AddArray<WGPU.VertexBufferLayout>(Buffers.Length);
             for (int i = 0; i < Buffers.Length; i++)
-                size += Buffers[i].CalculatePayloadSize();
-
-            return size;
+                Buffers[i].CalculatePayloadSize(ref payloadSize);
         }
 
-        internal int PackInto(ref WGPU.VertexState baseStruct, Span<byte> payloadBuffer)
+        internal readonly void PackInto(ref WGPU.VertexState baseStruct, ref PayloadAllocator payload)
         {
-            int payloadSize;
+            baseStruct.Module = Module;
+            baseStruct.ConstantCount = (uint)Constants.Length;
+            baseStruct.Constants = payload.AddArray<ConstantEntry>(Constants.Length);
+            baseStruct.BufferCount = (uint)Buffers.Length;
+            baseStruct.Buffers = payload.AddArray<WGPU.VertexBufferLayout>(Buffers.Length);
 
-            fixed(byte* startPtr = payloadBuffer)
+            baseStruct.EntryPoint = payload.AddString(EntryPoint, NativeStringEncoding.UTF8);
+
+            for (int i = 0; i < Constants.Length; i++)
             {
-                var ptr = startPtr;
-
-                var constants = (ConstantEntry*)ptr;
-                ptr += sizeof(ConstantEntry) * Constants.Length;
-
-                var buffers = (WGPU.VertexBufferLayout*)ptr;
-                ptr += sizeof(WGPU.VertexBufferLayout) * Buffers.Length;
-
-                baseStruct.Module = Module;
-                baseStruct.ConstantCount = (uint)Constants.Length;
-                baseStruct.Constants = constants;
-                baseStruct.BufferCount = (uint)Buffers.Length;
-                baseStruct.Buffers = buffers;
-
-                baseStruct.EntryPoint = ptr;
-                ptr += SilkMarshal.StringIntoSpan(EntryPoint, payloadBuffer[(int)(ptr - startPtr)..], 
-                    NativeStringEncoding.UTF8);
-
-                for (int i = 0; i < Constants.Length; i++)
-                {
-                    constants[i].Key = ptr;
-                    ptr += SilkMarshal.StringIntoSpan(Constants[i].key, payloadBuffer[(int)(ptr - startPtr)..], 
-                        NativeStringEncoding.UTF8);
-
-                    constants[i].Value = Constants[i].value;
-                }
-
-                for (int i = 0; i < Buffers.Length; i++)
-                {
-                    var subBuffer = payloadBuffer.Slice((int)(ptr - startPtr));
-                    ptr += Buffers[i].PackInto(ref buffers[i], subBuffer);
-                }
-
-                payloadSize = (int)(ptr - startPtr);
+                baseStruct.Constants[i].Key = payload.AddString(Constants[i].key, NativeStringEncoding.UTF8);
+                baseStruct.Constants[i].Value = Constants[i].value;
             }
-            return payloadSize;
+
+            for (int i = 0; i < Buffers.Length; i++)
+            {
+                Buffers[i].PackInto(ref baseStruct.Buffers[i], ref payload);
+            }
         }
     }
 
@@ -162,35 +217,23 @@ namespace Silk.NET.WebGPU.Safe
             UnclippedDepth = unclippedDepth;
         }
 
-        internal int CalculatePayloadSize()
+        internal readonly void CalculatePayloadSize(ref PayloadSizeTracker payloadSize)
         {
-            return sizeof(PrimitiveDepthClipControl);
+            payloadSize.AddStruct<PrimitiveDepthClipControl>();
         }
 
-        internal int PackInto(ref Silk.NET.WebGPU.PrimitiveState baseStruct, Span<byte> payloadBuffer)
+        internal readonly void PackInto(ref Silk.NET.WebGPU.PrimitiveState baseStruct, ref PayloadAllocator payload)
         {
-            int payloadSize;
+            var clipControl = payload.AddStruct<PrimitiveDepthClipControl>();
+            clipControl->UnclippedDepth = UnclippedDepth;
+            clipControl->Chain.SType = SType.PrimitiveDepthClipControl;
 
-            fixed (byte* startPtr = payloadBuffer)
-            {
-                var ptr = startPtr;
+            baseStruct.Topology = Topology;
+            baseStruct.StripIndexFormat = StripIndexFormat;
+            baseStruct.FrontFace = FrontFace;
+            baseStruct.CullMode = CullMode;
 
-                var clipControl = (PrimitiveDepthClipControl*)ptr;
-                ptr += sizeof(PrimitiveDepthClipControl);
-
-                baseStruct.Topology = Topology;
-                baseStruct.StripIndexFormat = StripIndexFormat;
-                baseStruct.FrontFace = FrontFace;
-                baseStruct.CullMode = CullMode;
-
-                clipControl->UnclippedDepth = UnclippedDepth;
-                clipControl->Chain.SType = SType.PrimitiveDepthClipControl;
-
-                baseStruct.NextInChain = (ChainedStruct*)clipControl;
-
-                payloadSize = (int)(ptr - startPtr);
-            }
-            return payloadSize;
+            baseStruct.NextInChain = (ChainedStruct*)clipControl;
         }
     }
 
@@ -207,34 +250,20 @@ namespace Silk.NET.WebGPU.Safe
             this.Attributes = attributes;
         }
 
-        internal int CalculatePayloadSize()
+        internal readonly void CalculatePayloadSize(ref PayloadSizeTracker payloadSize)
         {
-            return sizeof(VertexAttribute) * Attributes.Length;
+            payloadSize.AddArray<VertexAttribute>(Attributes.Length);
         }
 
-        internal int PackInto(ref Silk.NET.WebGPU.VertexBufferLayout baseStruct, Span<byte> payloadBuffer)
+        internal readonly void PackInto(ref Silk.NET.WebGPU.VertexBufferLayout baseStruct, ref PayloadAllocator payload)
         {
-            int payloadSize;
+            baseStruct.ArrayStride = ArrayStride;
+            baseStruct.StepMode = StepMode;
+            baseStruct.AttributeCount = (uint)Attributes.Length;
+            baseStruct.Attributes = payload.AddArray<VertexAttribute>(Attributes.Length);
 
-            fixed(byte* startPtr = payloadBuffer)
-            {
-                var ptr = startPtr;
-
-                var attributes = (VertexAttribute*)ptr;
-                ptr += sizeof(VertexAttribute) * Attributes.Length;
-
-                baseStruct.ArrayStride = ArrayStride;
-                baseStruct.StepMode = StepMode;
-                baseStruct.AttributeCount = (uint)Attributes.Length;
-                baseStruct.Attributes = attributes;
-
-                var attribute = attributes;
-                for (int i = 0; i < Attributes.Length; i++)
-                    attributes[i] = Attributes[i];
-
-                payloadSize = (int)(ptr - startPtr);
-            }
-            return payloadSize;
+            for (int i = 0; i < Attributes.Length; i++)
+                baseStruct.Attributes[i] = Attributes[i];
         }
     }
 
@@ -254,62 +283,38 @@ namespace Silk.NET.WebGPU.Safe
             Targets = colorTargets;
         }
 
-        internal int CalculatePayloadSize()
+        internal readonly void CalculatePayloadSize(ref PayloadSizeTracker payloadSize)
         {
-            int size = SilkMarshal.GetMaxSizeOf(EntryPoint, NativeStringEncoding.UTF8);
-            size += sizeof(ConstantEntry) * Constants.Length;
+            payloadSize.AddString(EntryPoint, NativeStringEncoding.UTF8);
+            payloadSize.AddArray<ConstantEntry>(Constants.Length);
             for (int i = 0; i < Constants.Length; i++)
-                size += SilkMarshal.GetMaxSizeOf(Constants[i].key, NativeStringEncoding.UTF8);
+                payloadSize.AddString(Constants[i].key, NativeStringEncoding.UTF8);
 
-            size += sizeof(WGPU.ColorTargetState) * Targets.Length;
+            payloadSize.AddArray<WGPU.ColorTargetState>(Targets.Length);
             for (int i = 0; i < Targets.Length; i++)
-                size += Targets[i].CalculatePayloadSize();
-
-            return size;
+                Targets[i].CalculatePayloadSize(ref payloadSize);
         }
 
-        internal int PackInto(ref WGPU.FragmentState baseStruct, Span<byte> payloadBuffer)
+        internal readonly void PackInto(ref WGPU.FragmentState baseStruct, ref PayloadAllocator payload)
         {
-            int payloadSize;
+            baseStruct.Module = Module;
+            baseStruct.ConstantCount = (uint)Constants.Length;
+            baseStruct.Constants = payload.AddArray<ConstantEntry>(Constants.Length);
+            baseStruct.TargetCount = (uint)Targets.Length;
+            baseStruct.Targets = payload.AddArray<WGPU.ColorTargetState>(Targets.Length);
 
-            fixed(byte* startPtr = payloadBuffer)
+            baseStruct.EntryPoint = payload.AddString(EntryPoint, NativeStringEncoding.UTF8);
+
+            for (int i = 0; i < Constants.Length; i++)
             {
-                var ptr = startPtr;
-
-                var constants = (ConstantEntry*)ptr;
-                ptr += sizeof(ConstantEntry) * Constants.Length;
-
-                var targets = (WGPU.ColorTargetState*)ptr;
-                ptr += sizeof(WGPU.ColorTargetState) * Targets.Length;
-
-                baseStruct.Module = Module;
-                baseStruct.ConstantCount = (uint)Constants.Length;
-                baseStruct.Constants = constants;
-                baseStruct.TargetCount = (uint)Targets.Length;
-                baseStruct.Targets = targets;
-
-                baseStruct.EntryPoint = ptr;
-                ptr += SilkMarshal.StringIntoSpan(EntryPoint, payloadBuffer[(int)(ptr - startPtr)..], 
-                    NativeStringEncoding.UTF8);
-
-                for (int i = 0; i < Constants.Length; i++)
-                {
-                    constants[i].Key = ptr;
-                    ptr += SilkMarshal.StringIntoSpan(Constants[i].key, payloadBuffer[(int)(ptr - startPtr)..], 
-                        NativeStringEncoding.UTF8);
-
-                    constants[i].Value = Constants[i].value;
-                }
-
-                for (int i = 0; i < Targets.Length; i++)
-                {
-                    var subBuffer = payloadBuffer.Slice((int)(ptr - startPtr));
-                    ptr += Targets[i].PackInto(ref targets[i], subBuffer);
-                }
-
-                payloadSize = (int)(ptr - startPtr);
+                baseStruct.Constants[i].Key = payload.AddString(Constants[i].key, NativeStringEncoding.UTF8);
+                baseStruct.Constants[i].Value = Constants[i].value;
             }
-            return payloadSize;
+
+            for (int i = 0; i < Targets.Length; i++)
+            {
+                Targets[i].PackInto(ref baseStruct.Targets[i], ref payload);
+            }
         }
     }
 
@@ -327,34 +332,23 @@ namespace Silk.NET.WebGPU.Safe
             WriteMask = writeMask;
         }
 
-        internal int CalculatePayloadSize()
+        internal readonly void CalculatePayloadSize(ref PayloadSizeTracker payloadSize)
         {
-            return BlendState.HasValue ? sizeof(BlendState): 0;
+            payloadSize.AddOptional<BlendState>(BlendState.HasValue);
         }
 
-        internal int PackInto(ref Silk.NET.WebGPU.ColorTargetState baseStruct, Span<byte> payloadBuffer)
+        internal readonly void PackInto(ref Silk.NET.WebGPU.ColorTargetState baseStruct, ref PayloadAllocator payload)
         {
-            int payloadSize;
-
-            fixed(byte* startPtr = payloadBuffer)
-            {
-                var ptr = startPtr;
-
-                baseStruct.Format = Format;
+            baseStruct.Format = Format;
                 baseStruct.WriteMask = WriteMask;
 
-                if (BlendState.HasValue)
-                {
-                    var blendState = (BlendState*)ptr;
-                    ptr += sizeof(BlendState);
-                    blendState->Color = BlendState.Value.color;
-                    blendState->Alpha = BlendState.Value.alpha;
-                    baseStruct.Blend = blendState;
-                }
-
-                payloadSize = (int)(ptr - startPtr);
+            if (BlendState.HasValue)
+            {
+                var blendState = payload.AddStruct<BlendState>();
+                blendState->Color = BlendState.Value.color;
+                blendState->Alpha = BlendState.Value.alpha;
+                baseStruct.Blend = blendState;
             }
-            return payloadSize;
         }
     }
 
@@ -369,28 +363,102 @@ namespace Silk.NET.WebGPU.Safe
             PipelineLayout = pipelineLayout;
         }
 
-        internal int CalculatePayloadSize()
+        internal readonly void CalculatePayloadSize(ref PayloadSizeTracker payloadSize)
         {
-            return SilkMarshal.GetMaxSizeOf(EntryPoint, NativeStringEncoding.UTF8);
+            payloadSize.AddString(EntryPoint, NativeStringEncoding.UTF8);
         }
 
-        internal int PackInto(ref WGPU.ShaderModuleCompilationHint baseStruct, Span<byte> payloadBuffer)
+        internal readonly void PackInto(ref WGPU.ShaderModuleCompilationHint baseStruct, ref PayloadAllocator payload)
         {
-            int payloadSize;
+            baseStruct.Layout = PipelineLayout;
+            baseStruct.EntryPoint = payload.AddString(EntryPoint, NativeStringEncoding.UTF8);
+        }
+    }
 
-            fixed(byte* startPtr = payloadBuffer)
+    public unsafe struct RenderPipelineDescriptor
+    {
+        public PipelineLayoutPtr? Layout;
+        public VertexState Vertex;
+        public PrimitiveState Primitive;
+        public DepthStencilState? DepthStencil;
+        public MultisampleState Multisample;
+        public FragmentState? Fragment;
+        public string? Label;
+
+        public RenderPipelineDescriptor(PipelineLayoutPtr? layout, 
+            VertexState vertex, PrimitiveState primitive, DepthStencilState? depthStencil, 
+            MultisampleState multisample, FragmentState? fragment, string? label = null)
+        {
+            Layout = layout;
+            Vertex = vertex;
+            Primitive = primitive;
+            DepthStencil = depthStencil;
+            Multisample = multisample;
+            Fragment = fragment;
+            Label = label;
+        }
+
+        internal readonly void CalculatePayloadSize(ref PayloadSizeTracker payloadSize)
+        {
+            payloadSize.AddString(Label, NativeStringEncoding.UTF8);
+
+            Vertex.CalculatePayloadSize(ref payloadSize);
+            Primitive.CalculatePayloadSize(ref payloadSize);
+            payloadSize.AddOptional(DepthStencil);
+
+            if (Fragment.HasValue)
             {
-                baseStruct.Layout = PipelineLayout;
-
-                var ptr = startPtr;
-
-                baseStruct.EntryPoint = ptr;
-                ptr += SilkMarshal.StringIntoSpan(EntryPoint, payloadBuffer[(int)(ptr - startPtr)..], 
-                    NativeStringEncoding.UTF8);
-
-                payloadSize = (int)(ptr - startPtr);
+                payloadSize.AddStruct<WGPU.FragmentState>();
+                Fragment.Value.CalculatePayloadSize(ref payloadSize);
             }
-            return payloadSize;
+        }
+
+        internal readonly void PackInto(ref WGPU.RenderPipelineDescriptor baseStruct, ref PayloadAllocator payload)
+        {
+            baseStruct.Label = payload.AddString(Label, NativeStringEncoding.UTF8);
+            baseStruct.Layout = Layout ?? (PipelineLayout*)null;
+            baseStruct.Multisample = Multisample;
+
+            Vertex.PackInto(ref baseStruct.Vertex, ref payload);
+            Primitive.PackInto(ref baseStruct.Primitive, ref payload);
+
+            baseStruct.DepthStencil = payload.AddOptional(in DepthStencil);
+
+
+            if (Fragment.HasValue)
+            {
+                baseStruct.Fragment = payload.AddStruct<WGPU.FragmentState>();
+
+                Fragment.Value.PackInto(ref *baseStruct.Fragment, ref payload);
+            }
+        }
+    }
+
+    internal unsafe static class ShaderModuleDescriptor
+    {
+        internal static void CalculatePayloadSize(ref PayloadSizeTracker payloadSize, 
+            string? label, ReadOnlySpan<Safe.ShaderModuleCompilationHint> compilationHints)
+        {
+            payloadSize.AddString(label, NativeStringEncoding.UTF8);
+
+            payloadSize.AddArray<WGPU.ShaderModuleCompilationHint>(compilationHints.Length);
+            for (int i = 0; i < compilationHints.Length; i++)
+            {
+                compilationHints[i].CalculatePayloadSize(ref payloadSize);
+            }
+        }
+
+        internal static void PackInto(ref WGPU.ShaderModuleDescriptor baseStruct, ref PayloadAllocator payload,
+            string? label, ReadOnlySpan<Safe.ShaderModuleCompilationHint> compilationHints)
+        {
+            baseStruct.Label = payload.AddString(label, NativeStringEncoding.UTF8);
+
+            baseStruct.HintCount = (uint)compilationHints.Length;
+            baseStruct.Hints = payload.AddArray<WGPU.ShaderModuleCompilationHint>(compilationHints.Length);
+            for (int i = 0; i < compilationHints.Length; i++)
+            {
+                compilationHints[i].PackInto(ref baseStruct.Hints[i], ref payload);
+            }
         }
     }
 

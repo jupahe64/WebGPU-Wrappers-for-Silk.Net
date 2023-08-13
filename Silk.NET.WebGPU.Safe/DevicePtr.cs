@@ -182,8 +182,13 @@ namespace Silk.NET.WebGPU.Safe
                 Layout = layout ?? (PipelineLayout*)null
             };
 
-            Span<byte> span = stackalloc byte[stage.CalculatePayloadSize()];
-            stage.PackInto(ref descriptor.Compute, span);
+            var payloadSizeTracker = new PayloadSizeTracker();
+            stage.CalculatePayloadSize(ref payloadSizeTracker);
+            payloadSizeTracker.GetSize(out int size, out int stringPoolOffset);
+
+            byte* ptr = stackalloc byte[size];
+            var payloadAllocator = new PayloadAllocator(size, ptr, ptr + stringPoolOffset);
+            stage.PackInto(ref descriptor.Compute, ref payloadAllocator);
 
             return new ComputePipelinePtr(_wgpu, _wgpu.DeviceCreateComputePipeline(_ptr, in descriptor));
         }
@@ -201,8 +206,13 @@ namespace Silk.NET.WebGPU.Safe
                 Layout = layout ?? (PipelineLayout*)null
             };
 
-            Span<byte> span = stackalloc byte[compute.CalculatePayloadSize()];
-            compute.PackInto(ref descriptor.Compute, span);
+            var payloadSizeTracker = new PayloadSizeTracker();
+            compute.CalculatePayloadSize(ref payloadSizeTracker);
+            payloadSizeTracker.GetSize(out int size, out int stringPoolOffset);
+
+            byte* ptr = stackalloc byte[size];
+            var payloadAllocator = new PayloadAllocator(size, ptr, ptr + stringPoolOffset);
+            compute.PackInto(ref descriptor.Compute, ref payloadAllocator);
 
             _wgpu.DeviceCreateComputePipelineAsync(_ptr, in descriptor, s_CreateComputePipelineCallback, (void*)key);
 
@@ -273,7 +283,7 @@ namespace Silk.NET.WebGPU.Safe
         }
 
         public RenderPipelinePtr CreateRenderPipeline(
-            PipelineLayoutPtr? layout, 
+            PipelineLayoutPtr? layout,
             VertexState vertex,
             PrimitiveState primitive,
             DepthStencilState? depthStencil,
@@ -281,42 +291,33 @@ namespace Silk.NET.WebGPU.Safe
             FragmentState? fragment,
             string? label = null)
         {
-            using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
+            return CreateRenderPipeline(
+                new Safe.RenderPipelineDescriptor
+                {
+                    Layout = layout,
+                    Vertex = vertex,
+                    Primitive = primitive,
+                    DepthStencil = depthStencil,
+                    Multisample = multisample,
+                    Fragment = fragment,
+                    Label = label
+                }
+            );
+        }
 
-            int indexPtr = 0;
+        public RenderPipelinePtr CreateRenderPipeline(Safe.RenderPipelineDescriptor descriptor)
+        {
+            var native = default(WGPU.RenderPipelineDescriptor);
 
-            Span<byte> payloadBuffer = stackalloc byte[vertex.CalculatePayloadSize() +
-                primitive.CalculatePayloadSize() +
-                (fragment.HasValue ? fragment.Value.CalculatePayloadSize() : 0)];
+            var payloadSizeTracker = new PayloadSizeTracker();
+            descriptor.CalculatePayloadSize(ref payloadSizeTracker);
+            payloadSizeTracker.GetSize(out int size, out int stringPoolOffset);
 
-            var vs = default(WGPU.VertexState);
-            indexPtr += vertex.PackInto(ref vs, payloadBuffer);
+            byte* ptr = stackalloc byte[size];
+            var payloadAllocator = new PayloadAllocator(size, ptr, ptr + stringPoolOffset);
+            descriptor.PackInto(ref native, ref payloadAllocator);
 
-            var ps = default(WGPU.PrimitiveState);
-            indexPtr += primitive.PackInto(ref ps, payloadBuffer[indexPtr..]);
-
-            var ds = depthStencil.GetValueOrDefault();
-
-            WGPU.FragmentState* fsPtr = null;
-            var fs = default(WGPU.FragmentState);
-            if (fragment.HasValue)
-            {
-                indexPtr += fragment.Value.PackInto(ref fs, payloadBuffer[indexPtr..]);
-                fsPtr = &fs;
-            }
-
-            var descriptor = new RenderPipelineDescriptor
-            {
-                Label = marshalledLabel.Ptr,
-                Layout = layout ?? (PipelineLayout*)null,
-                Vertex = vs,
-                Primitive = ps,
-                DepthStencil = depthStencil==null ? null : &ds,
-                Multisample = multisample,
-                Fragment = fsPtr
-            };
-
-            return new RenderPipelinePtr(_wgpu, _wgpu.DeviceCreateRenderPipeline(_ptr, in descriptor));
+            return new RenderPipelinePtr(_wgpu, _wgpu.DeviceCreateRenderPipeline(_ptr, in native));
         }
 
         public Task<RenderPipelinePtr> CreateRenderPipelineAsync(
@@ -328,45 +329,36 @@ namespace Silk.NET.WebGPU.Safe
             FragmentState? fragment,
             string? label = null)
         {
+            return CreateRenderPipelineAsync(
+                new Safe.RenderPipelineDescriptor
+                {
+                    Layout = layout,
+                    Vertex = vertex,
+                    Primitive = primitive,
+                    DepthStencil = depthStencil,
+                    Multisample = multisample,
+                    Fragment = fragment,
+                    Label = label
+                }
+            );
+        }
+
+        public Task<RenderPipelinePtr> CreateRenderPipelineAsync(Safe.RenderPipelineDescriptor descriptor)
+        {
             var task = new TaskCompletionSource<RenderPipelinePtr>();
             int key = s_renderPipelineRequests.Rent((_wgpu, task));
 
-            using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
+            var native = default(WGPU.RenderPipelineDescriptor);
 
-            int indexPtr = 0;
+            var payloadSizeTracker = new PayloadSizeTracker();
+            descriptor.CalculatePayloadSize(ref payloadSizeTracker);
+            payloadSizeTracker.GetSize(out int size, out int stringPoolOffset);
 
-            Span<byte> payloadBuffer = stackalloc byte[vertex.CalculatePayloadSize() +
-                primitive.CalculatePayloadSize() +
-                (fragment.HasValue ? fragment.Value.CalculatePayloadSize() : 0)];
+            byte* ptr = stackalloc byte[size];
+            var payloadAllocator = new PayloadAllocator(size, ptr, ptr + stringPoolOffset);
+            descriptor.PackInto(ref native, ref payloadAllocator);
 
-            var vs = default(WGPU.VertexState);
-            indexPtr += vertex.PackInto(ref vs, payloadBuffer);
-
-            var ps = default(WGPU.PrimitiveState);
-            indexPtr += primitive.PackInto(ref ps, payloadBuffer[indexPtr..]);
-
-            var ds = depthStencil.GetValueOrDefault();
-
-            WGPU.FragmentState* fsPtr = null;
-            var fs = default(WGPU.FragmentState);
-            if (fragment.HasValue)
-            {
-                indexPtr += fragment.Value.PackInto(ref fs, payloadBuffer[indexPtr..]);
-                fsPtr = &fs;
-            }
-
-            var descriptor = new RenderPipelineDescriptor
-            {
-                Label = marshalledLabel.Ptr,
-                Layout = layout ?? (PipelineLayout*)null,
-                Vertex = vs,
-                Primitive = ps,
-                DepthStencil = depthStencil == null ? null : &ds,
-                Multisample = multisample,
-                Fragment = fsPtr
-            };
-
-            _wgpu.DeviceCreateRenderPipelineAsync(_ptr, in descriptor, s_CreateRenderPipelineCallback, (void*)key);
+            _wgpu.DeviceCreateRenderPipelineAsync(_ptr, in native, s_CreateRenderPipelineCallback, (void*)key);
 
             return task.Task;
         }
@@ -416,21 +408,19 @@ namespace Silk.NET.WebGPU.Safe
             ReadOnlySpan<ShaderModuleCompilationHint> compilationHints, 
             string? label = null)
         {
-            using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
+            var descriptor = default(WGPU.ShaderModuleDescriptor);
 
-            int payloadBufferSize = 0;
-            for (int i = 0; i < compilationHints.Length; i++)
-                payloadBufferSize += compilationHints[i].CalculatePayloadSize();
+            var payloadSizeTracker = new PayloadSizeTracker();
+            ShaderModuleDescriptor.CalculatePayloadSize(ref payloadSizeTracker,
+                label, compilationHints);
+            payloadSizeTracker.GetSize(out int size, out int stringPoolOffset);
 
-            Span<byte> payloadBuffer = stackalloc byte[payloadBufferSize];
-            var compilationHintsPtr = stackalloc WGPU.ShaderModuleCompilationHint[compilationHints.Length];
+            byte* ptr = stackalloc byte[size];
+            var payloadAllocator = new PayloadAllocator(size, ptr, ptr + stringPoolOffset);
+            ShaderModuleDescriptor.PackInto(ref descriptor, ref payloadAllocator,
+                label, compilationHints);
 
-            int indexPtr = 0;
-
-            for (int i = 0; i < compilationHints.Length; i++)
-                indexPtr += compilationHints[i].PackInto(ref compilationHintsPtr[i], payloadBuffer[indexPtr..]);
-
-            fixed(byte* codePtr = code)
+            fixed (byte* codePtr = code)
             {
                 var wgslDescriptor = new ShaderModuleWGSLDescriptor
                 {
@@ -441,13 +431,7 @@ namespace Silk.NET.WebGPU.Safe
                     Code = codePtr,
                 };
 
-                var descriptor = new ShaderModuleDescriptor
-                {
-                    Label = marshalledLabel.Ptr,
-                    HintCount = (uint)compilationHints.Length,
-                    Hints = compilationHintsPtr,
-                    NextInChain = &wgslDescriptor.Chain
-                };
+                descriptor.NextInChain = &wgslDescriptor.Chain;
 
                 return new ShaderModulePtr(_wgpu, _wgpu.DeviceCreateShaderModule(_ptr, in descriptor));
             }
@@ -476,19 +460,19 @@ namespace Silk.NET.WebGPU.Safe
         {
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
 
-            int payloadBufferSize = 0;
-            for (int i = 0; i < compilationHints.Length; i++)
-                payloadBufferSize += compilationHints[i].CalculatePayloadSize();
+            var descriptor = default(WGPU.ShaderModuleDescriptor);
 
-            Span<byte> payloadBuffer = stackalloc byte[payloadBufferSize];
-            var compilationHintsPtr = stackalloc WGPU.ShaderModuleCompilationHint[compilationHints.Length];
+            var payloadSizeTracker = new PayloadSizeTracker();
+            ShaderModuleDescriptor.CalculatePayloadSize(ref payloadSizeTracker,
+                label, compilationHints);
+            payloadSizeTracker.GetSize(out int size, out int stringPoolOffset);
 
-            int indexPtr = 0;
+            byte* ptr = stackalloc byte[size];
+            var payloadAllocator = new PayloadAllocator(size, ptr, ptr + stringPoolOffset);
+            ShaderModuleDescriptor.PackInto(ref descriptor, ref payloadAllocator,
+                label, compilationHints);
 
-            for (int i = 0; i < compilationHints.Length; i++)
-                indexPtr += compilationHints[i].PackInto(ref compilationHintsPtr[i], payloadBuffer[indexPtr..]);
-
-            fixed(uint* codePtr = code)
+            fixed (uint* codePtr = code)
             {
                 var wgslDescriptor = new ShaderModuleSPIRVDescriptor
                 {
@@ -500,13 +484,7 @@ namespace Silk.NET.WebGPU.Safe
                     CodeSize = (uint)code.Length
                 };
 
-                var descriptor = new ShaderModuleDescriptor
-                {
-                    Label = marshalledLabel.Ptr,
-                    HintCount = (uint)compilationHints.Length,
-                    Hints = compilationHintsPtr,
-                    NextInChain = &wgslDescriptor.Chain
-                };
+                descriptor.NextInChain = &wgslDescriptor.Chain;
 
                 return new ShaderModulePtr(_wgpu, _wgpu.DeviceCreateShaderModule(_ptr, in descriptor));
             }
