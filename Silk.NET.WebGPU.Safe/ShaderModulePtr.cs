@@ -15,8 +15,8 @@ namespace Silk.NET.WebGPU.Safe
 
             if (status != CompilationInfoRequestStatus.Success)
                 task.SetException(new WGPUException(status.ToString()));
-
-            task.SetResult(CompilationInfo.UnpackFrom(info));
+            else
+                task.SetResult(CompilationInfo.UnpackFrom(info));
         }
 
         private static readonly PfnCompilationInfoCallback 

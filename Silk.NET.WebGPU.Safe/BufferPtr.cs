@@ -16,8 +16,8 @@ namespace Silk.NET.WebGPU.Safe
 
             if (status != BufferMapAsyncStatus.Success)
                 task.SetException(new WGPUException(status.ToString()));
-
-            task.SetResult(default);
+            else
+                task.SetResult(default);
         }
 
         private static readonly PfnBufferMapCallback 

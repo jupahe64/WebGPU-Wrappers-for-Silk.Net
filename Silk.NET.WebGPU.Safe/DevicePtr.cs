@@ -68,7 +68,10 @@ namespace Silk.NET.WebGPU.Safe
             string? messageStr = SilkMarshal.PtrToString((nint)message, NativeStringEncoding.UTF8);
 
             if (type == ErrorType.DeviceLost)
+            {
                 task.SetException(new WGPUException($"{type} {messageStr}"));
+                return;
+            }
 
             task.SetResult(
                 type switch
