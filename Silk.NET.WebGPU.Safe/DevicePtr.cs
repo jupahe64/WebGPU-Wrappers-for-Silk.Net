@@ -585,6 +585,11 @@ namespace Silk.NET.WebGPU.Safe
             _wgpu.DeviceSetUncapturedErrorCallback(_ptr, s_UncapturedErrorCallback, (void*)idx);
         }
 
+        public bool TryGetExtension<T>(out T extension) where T : NativeExtension<WebGPU>
+        {
+            return _wgpu.TryGetDeviceExtension(_ptr, out extension);
+        }
+
         public void Reference() => _wgpu.DeviceReference(_ptr);
 
         public void Release() => _wgpu.DeviceRelease(_ptr);
