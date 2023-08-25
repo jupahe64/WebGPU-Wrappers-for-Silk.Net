@@ -19,6 +19,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Silk.NET.WebGPU.Extensions.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Deferred-Rendering", "Samples\Deferred-Rendering\Deferred-Rendering.csproj", "{24CE798A-8F4C-48A9-AECA-B86F4037A369}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Picking", "Samples\Picking\Picking.csproj", "{70B44B88-AF74-44E6-9326-321E217564FC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -53,6 +55,10 @@ Global
 		{24CE798A-8F4C-48A9-AECA-B86F4037A369}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{24CE798A-8F4C-48A9-AECA-B86F4037A369}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{24CE798A-8F4C-48A9-AECA-B86F4037A369}.Release|Any CPU.Build.0 = Release|Any CPU
+		{70B44B88-AF74-44E6-9326-321E217564FC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{70B44B88-AF74-44E6-9326-321E217564FC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{70B44B88-AF74-44E6-9326-321E217564FC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{70B44B88-AF74-44E6-9326-321E217564FC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -63,6 +69,7 @@ Global
 		{3E5A12C6-93D6-4607-A0E3-53580885C2CA} = {B01961D1-CC2F-42E3-B560-9CD98126083B}
 		{F1518E32-9305-4E7E-AC18-DE20974E7804} = {B01961D1-CC2F-42E3-B560-9CD98126083B}
 		{24CE798A-8F4C-48A9-AECA-B86F4037A369} = {B01961D1-CC2F-42E3-B560-9CD98126083B}
+		{70B44B88-AF74-44E6-9326-321E217564FC} = {B01961D1-CC2F-42E3-B560-9CD98126083B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {636C9BF9-A89F-49EE-A346-2F1821BDD053}
