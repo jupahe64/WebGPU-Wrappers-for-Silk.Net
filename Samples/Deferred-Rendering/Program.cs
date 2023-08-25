@@ -209,7 +209,7 @@ namespace DeferredRendering
             var limits = adapter.GetLimits();
             var properties = adapter.GetProperties();
 
-            window!.Title = $"Imgui {properties.BackendType} {properties.Name}";
+            window!.Title = $"Deferred-Rendering {properties.BackendType} {properties.Name}";
 
             device = await adapter.RequestDevice(requiredLimits: limits, requiredFeatures: features,
                 deviceLostCallback: (r, m) =>
