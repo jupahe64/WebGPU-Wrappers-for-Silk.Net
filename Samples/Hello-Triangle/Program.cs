@@ -67,7 +67,7 @@ namespace HelloTriangle
             var instance = wgpu.CreateInstance();
 
             var adapter = await instance.RequestAdapter(
-                backendType: BackendType.Undefined,
+                backendType: default,
                 powerPreference: PowerPreference.Undefined
             );
 

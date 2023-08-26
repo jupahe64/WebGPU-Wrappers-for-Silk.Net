@@ -157,7 +157,7 @@ namespace ImGuiDemo
             var instance = wgpu.CreateInstance();
 
             var adapter = await instance.RequestAdapter(
-                backendType: BackendType.Undefined,
+                backendType: default,
                 powerPreference: PowerPreference.Undefined
             );
 
@@ -412,7 +412,7 @@ namespace ImGuiDemo
                 Matrix4X4.CreateFromYawPitchRoll(time*2, time, 0) *
                 Matrix4X4.CreateTranslation(0f, MathF.Sin(time*2)*0.5f+0.5f, 0f),
 
-                Color = ToGeneric(cubeColor)
+                Color = cubeColor.ToGeneric()
             }));
 
             var pass = cmd.BeginRenderPass(new Safe.RenderPassColorAttachment[]
