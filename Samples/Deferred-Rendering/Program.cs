@@ -16,8 +16,9 @@ using System.IO;
 using Silk.NET.WebGPU.Extensions.ImGui;
 using ImGuiNET;
 using Silk.NET.Input;
-using NativeFileDialogExtendedSharp;
 using System.Numerics;
+using System.Linq;
+using TinyDialogsNet;
 
 namespace DeferredRendering
 {
@@ -52,6 +53,10 @@ namespace DeferredRendering
         private static Vector3 albedoColor = Vector3.One;
         private static Vector3 emissionColor = Vector3.One;
         private static float normalMapStrength = 1.0f;
+
+        private static readonly string[] supportedImageFormatPatterns =
+            SixLabors.ImageSharp.Configuration.Default.ImageFormats.SelectMany(
+            f => f.FileExtensions).Select(ext => $"*.{ext}").ToArray();
 
         struct Vertex
         {
@@ -621,14 +626,12 @@ namespace DeferredRendering
                 var imageButtonSize = ImGui.GetContentRegionAvail().X;
                 if (ImGui.ImageButton("ChooseTextureAlbedo", modelTextureAlbedo.view.GetIntPtr(), new(imageButtonSize)))
                 {
-                    var result = Nfd.FileOpen(new NfdFilter[]
-                    {
-                        new NfdFilter { Description="Image files", Specification="png,jpg,jpeg,bmp" }
-                    });
+                    var files = Dialogs.OpenFileDialog(title: "Choose Albedo Texture", filterName: "Image files",
+                        filterPatterns: supportedImageFormatPatterns);
 
-                    if (result.Status == NfdStatus.Ok)
+                    if (files?.Count() == 1)
                     {
-                        using var stream = new FileStream(result.Path, FileMode.Open);
+                        using var stream = new FileStream(files.First(), FileMode.Open);
 
                         requestedAlbedoTexture = CreateTextureFromRGBAImage(TextureUsage.TextureBinding, stream);
                     }
@@ -652,14 +655,12 @@ namespace DeferredRendering
                 imageButtonSize = ImGui.GetContentRegionAvail().X;
                 if (ImGui.ImageButton("ChooseTextureEmission", modelTextureEmission.view.GetIntPtr(), new(imageButtonSize)))
                 {
-                    var result = Nfd.FileOpen(new NfdFilter[]
-                    {
-                        new NfdFilter { Description="Image files", Specification="png,jpg,jpeg,bmp" }
-                    });
+                    var files = Dialogs.OpenFileDialog(title: "Choose Emission Texture", filterName: "Image files",
+                        filterPatterns: supportedImageFormatPatterns);
 
-                    if (result.Status == NfdStatus.Ok)
+                    if (files?.Count() == 1)
                     {
-                        using var stream = new FileStream(result.Path, FileMode.Open);
+                        using var stream = new FileStream(files.First(), FileMode.Open);
 
                         requestedEmissionTexture = CreateTextureFromRGBAImage(TextureUsage.TextureBinding, stream);
                     }
