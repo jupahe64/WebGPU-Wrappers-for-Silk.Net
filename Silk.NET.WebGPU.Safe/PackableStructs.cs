@@ -5,11 +5,12 @@ using System.Text;
 using System.Xml.Linq;
 using Silk.NET.Core.Attributes;
 using Silk.NET.Core.Native;
+using static System.Net.Mime.MediaTypeNames;
 using WGPU = Silk.NET.WebGPU;
 
 namespace Silk.NET.WebGPU.Safe
 {
-    internal unsafe struct PayloadSizeTracker
+    internal unsafe struct PayloadSizeCalculator
     {
         private int _payloadSize;
         private int _stringPoolSize;
@@ -51,13 +52,13 @@ namespace Silk.NET.WebGPU.Safe
         }
     }
 
-    internal unsafe struct PayloadAllocator
+    internal unsafe struct PayloadWriter
     {
         private byte* _payloadPtr;
         private byte* _stringPoolPtr;
         private byte* _payloadEnd;
 
-        public PayloadAllocator(int totalSize, byte* payloadPtr, byte* stringPoolPtr) : this()
+        public PayloadWriter(int totalSize, byte* payloadPtr, byte* stringPoolPtr) : this()
         {
             _payloadPtr = payloadPtr;
             _stringPoolPtr = stringPoolPtr;
@@ -109,10 +110,10 @@ namespace Silk.NET.WebGPU.Safe
     public unsafe struct ProgrammableStage
     {
         public ShaderModulePtr Module;
-        public string EntryPoint;
+        public string? EntryPoint;
         public (string key, double value)[] Constants;
 
-        public ProgrammableStage(ShaderModulePtr shaderModule, string entryPoint,
+        public ProgrammableStage(ShaderModulePtr shaderModule, string? entryPoint,
             (string key, double value)[] constants)
         {
             Module = shaderModule;
@@ -120,7 +121,7 @@ namespace Silk.NET.WebGPU.Safe
             Constants = constants;
         }
         
-        internal readonly void CalculatePayloadSize(ref PayloadSizeTracker payloadSize)
+        internal readonly void CalculatePayloadSize(ref PayloadSizeCalculator payloadSize)
         {
             payloadSize.AddString(EntryPoint, NativeStringEncoding.UTF8);
             payloadSize.AddArray<ConstantEntry>(Constants.Length);
@@ -130,7 +131,7 @@ namespace Silk.NET.WebGPU.Safe
             }
         }
 
-        internal readonly void PackInto(ref ProgrammableStageDescriptor baseStruct, ref PayloadAllocator payload)
+        internal readonly void PackInto(ref ProgrammableStageDescriptor baseStruct, ref PayloadWriter payload)
         {
             baseStruct.Module = Module;
             baseStruct.ConstantCount = (uint)Constants.Length;
@@ -163,7 +164,7 @@ namespace Silk.NET.WebGPU.Safe
             Buffers = buffers;
         }
 
-        internal readonly void CalculatePayloadSize(ref PayloadSizeTracker payloadSize)
+        internal readonly void CalculatePayloadSize(ref PayloadSizeCalculator payloadSize)
         {
             payloadSize.AddString(EntryPoint, NativeStringEncoding.UTF8);
             payloadSize.AddArray<ConstantEntry>(Constants.Length);
@@ -175,7 +176,7 @@ namespace Silk.NET.WebGPU.Safe
                 Buffers[i].CalculatePayloadSize(ref payloadSize);
         }
 
-        internal readonly void PackInto(ref WGPU.VertexState baseStruct, ref PayloadAllocator payload)
+        internal readonly void PackInto(ref WGPU.VertexState baseStruct, ref PayloadWriter payload)
         {
             baseStruct.Module = Module;
             baseStruct.ConstantCount = (uint)Constants.Length;
@@ -217,12 +218,12 @@ namespace Silk.NET.WebGPU.Safe
             UnclippedDepth = unclippedDepth;
         }
 
-        internal readonly void CalculatePayloadSize(ref PayloadSizeTracker payloadSize)
+        internal readonly void CalculatePayloadSize(ref PayloadSizeCalculator payloadSize)
         {
             payloadSize.AddStruct<PrimitiveDepthClipControl>();
         }
 
-        internal readonly void PackInto(ref Silk.NET.WebGPU.PrimitiveState baseStruct, ref PayloadAllocator payload)
+        internal readonly void PackInto(ref Silk.NET.WebGPU.PrimitiveState baseStruct, ref PayloadWriter payload)
         {
             var clipControl = payload.AddStruct<PrimitiveDepthClipControl>();
             clipControl->UnclippedDepth = UnclippedDepth;
@@ -250,12 +251,12 @@ namespace Silk.NET.WebGPU.Safe
             this.Attributes = attributes;
         }
 
-        internal readonly void CalculatePayloadSize(ref PayloadSizeTracker payloadSize)
+        internal readonly void CalculatePayloadSize(ref PayloadSizeCalculator payloadSize)
         {
             payloadSize.AddArray<VertexAttribute>(Attributes.Length);
         }
 
-        internal readonly void PackInto(ref Silk.NET.WebGPU.VertexBufferLayout baseStruct, ref PayloadAllocator payload)
+        internal readonly void PackInto(ref Silk.NET.WebGPU.VertexBufferLayout baseStruct, ref PayloadWriter payload)
         {
             baseStruct.ArrayStride = ArrayStride;
             baseStruct.StepMode = StepMode;
@@ -283,7 +284,7 @@ namespace Silk.NET.WebGPU.Safe
             Targets = colorTargets;
         }
 
-        internal readonly void CalculatePayloadSize(ref PayloadSizeTracker payloadSize)
+        internal readonly void CalculatePayloadSize(ref PayloadSizeCalculator payloadSize)
         {
             payloadSize.AddString(EntryPoint, NativeStringEncoding.UTF8);
             payloadSize.AddArray<ConstantEntry>(Constants.Length);
@@ -295,7 +296,7 @@ namespace Silk.NET.WebGPU.Safe
                 Targets[i].CalculatePayloadSize(ref payloadSize);
         }
 
-        internal readonly void PackInto(ref WGPU.FragmentState baseStruct, ref PayloadAllocator payload)
+        internal readonly void PackInto(ref WGPU.FragmentState baseStruct, ref PayloadWriter payload)
         {
             baseStruct.Module = Module;
             baseStruct.ConstantCount = (uint)Constants.Length;
@@ -332,12 +333,12 @@ namespace Silk.NET.WebGPU.Safe
             WriteMask = writeMask;
         }
 
-        internal readonly void CalculatePayloadSize(ref PayloadSizeTracker payloadSize)
+        internal readonly void CalculatePayloadSize(ref PayloadSizeCalculator payloadSize)
         {
             payloadSize.AddOptional<BlendState>(BlendState.HasValue);
         }
 
-        internal readonly void PackInto(ref Silk.NET.WebGPU.ColorTargetState baseStruct, ref PayloadAllocator payload)
+        internal readonly void PackInto(ref Silk.NET.WebGPU.ColorTargetState baseStruct, ref PayloadWriter payload)
         {
             baseStruct.Format = Format;
                 baseStruct.WriteMask = WriteMask;
@@ -363,12 +364,12 @@ namespace Silk.NET.WebGPU.Safe
             PipelineLayout = pipelineLayout;
         }
 
-        internal readonly void CalculatePayloadSize(ref PayloadSizeTracker payloadSize)
+        internal readonly void CalculatePayloadSize(ref PayloadSizeCalculator payloadSize)
         {
             payloadSize.AddString(EntryPoint, NativeStringEncoding.UTF8);
         }
 
-        internal readonly void PackInto(ref WGPU.ShaderModuleCompilationHint baseStruct, ref PayloadAllocator payload)
+        internal readonly void PackInto(ref WGPU.ShaderModuleCompilationHint baseStruct, ref PayloadWriter payload)
         {
             baseStruct.Layout = PipelineLayout;
             baseStruct.EntryPoint = payload.AddString(EntryPoint, NativeStringEncoding.UTF8);
@@ -398,7 +399,7 @@ namespace Silk.NET.WebGPU.Safe
             Label = label;
         }
 
-        internal readonly void CalculatePayloadSize(ref PayloadSizeTracker payloadSize)
+        internal readonly void CalculatePayloadSize(ref PayloadSizeCalculator payloadSize)
         {
             payloadSize.AddString(Label, NativeStringEncoding.UTF8);
 
@@ -413,7 +414,7 @@ namespace Silk.NET.WebGPU.Safe
             }
         }
 
-        internal readonly void PackInto(ref WGPU.RenderPipelineDescriptor baseStruct, ref PayloadAllocator payload)
+        internal readonly void PackInto(ref WGPU.RenderPipelineDescriptor baseStruct, ref PayloadWriter payload)
         {
             baseStruct.Label = payload.AddString(Label, NativeStringEncoding.UTF8);
             baseStruct.Layout = Layout ?? (PipelineLayout*)null;
@@ -436,7 +437,7 @@ namespace Silk.NET.WebGPU.Safe
 
     internal unsafe static class ShaderModuleDescriptor
     {
-        internal static void CalculatePayloadSize(ref PayloadSizeTracker payloadSize, 
+        internal static void CalculatePayloadSize(ref PayloadSizeCalculator payloadSize, 
             string? label, ReadOnlySpan<Safe.ShaderModuleCompilationHint> compilationHints)
         {
             payloadSize.AddString(label, NativeStringEncoding.UTF8);
@@ -448,7 +449,7 @@ namespace Silk.NET.WebGPU.Safe
             }
         }
 
-        internal static void PackInto(ref WGPU.ShaderModuleDescriptor baseStruct, ref PayloadAllocator payload,
+        internal static void PackInto(ref WGPU.ShaderModuleDescriptor baseStruct, ref PayloadWriter payload,
             string? label, ReadOnlySpan<Safe.ShaderModuleCompilationHint> compilationHints)
         {
             baseStruct.Label = payload.AddString(label, NativeStringEncoding.UTF8);
@@ -514,49 +515,49 @@ namespace Silk.NET.WebGPU.Safe
         }
     }
 
-    public unsafe struct ComputePassTimestampWrite
+    public unsafe struct ComputePassTimestampWrites
     {
-        public ComputePassTimestampLocation Location;
-        public uint QueryIndex;
+        public uint BeginningOfPassWriteIndex;
+        public uint EndOfPassWriteIndex;
         public QuerySetPtr QuerySet;
 
-        public ComputePassTimestampWrite(ComputePassTimestampLocation location, uint queryIndex, QuerySetPtr querySet)
+        public ComputePassTimestampWrites(uint beginningOfPassWriteIndex, uint endOfPassWriteIndex, QuerySetPtr querySet)
         {
-            Location = location;
-            QueryIndex = queryIndex;
+            BeginningOfPassWriteIndex = beginningOfPassWriteIndex;
+            EndOfPassWriteIndex = endOfPassWriteIndex;
             QuerySet = querySet;
         }
 
-        internal WGPU.ComputePassTimestampWrite Pack()
+        internal WGPU.ComputePassTimestampWrites Pack()
         {
-            return new WGPU.ComputePassTimestampWrite
+            return new WGPU.ComputePassTimestampWrites
             {
-                Location = Location,
-                QueryIndex = QueryIndex,
+                BeginningOfPassWriteIndex = BeginningOfPassWriteIndex,
+                EndOfPassWriteIndex = EndOfPassWriteIndex,
                 QuerySet = QuerySet
             };
         }
     }
 
-    public unsafe struct RenderPassTimestampWrite
+    public unsafe struct RenderPassTimestampWrites
     {
-        public RenderPassTimestampLocation Location;
-        public uint QueryIndex;
+        public uint BeginningOfPassWriteIndex;
+        public uint EndOfPassWriteIndex;
         public QuerySetPtr QuerySet;
 
-        public RenderPassTimestampWrite(RenderPassTimestampLocation location, uint queryIndex, QuerySetPtr querySet)
+        public RenderPassTimestampWrites(uint beginningOfPassWriteIndex, uint endOfPassWriteIndex, QuerySetPtr querySet)
         {
-            Location = location;
-            QueryIndex = queryIndex;
+            BeginningOfPassWriteIndex = beginningOfPassWriteIndex;
+            EndOfPassWriteIndex = endOfPassWriteIndex;
             QuerySet = querySet;
         }
 
-        internal WGPU.RenderPassTimestampWrite Pack()
+        internal WGPU.RenderPassTimestampWrites Pack()
         {
-            return new WGPU.RenderPassTimestampWrite
+            return new WGPU.RenderPassTimestampWrites
             {
-                Location = Location,
-                QueryIndex = QueryIndex,
+                BeginningOfPassWriteIndex = BeginningOfPassWriteIndex,
+                EndOfPassWriteIndex = EndOfPassWriteIndex,
                 QuerySet = QuerySet
             };
         }
@@ -633,6 +634,40 @@ namespace Silk.NET.WebGPU.Safe
                 StencilClearValue = StencilClearValue,
                 StencilReadOnly = StencilReadOnly
             };
+        }
+    }
+
+    public unsafe partial struct SurfaceConfiguration
+    {
+        public DevicePtr Device;
+        public TextureFormat Format;
+        public TextureUsage Usage;
+        public TextureFormat[] ViewFormats;
+        public CompositeAlphaMode AlphaMode;
+        public uint Width;
+        public uint Height;
+        public PresentMode PresentMode;
+
+        internal readonly void CalculatePayloadSize(ref PayloadSizeCalculator payloadSize)
+        {
+            payloadSize.AddArray<TextureFormat>(ViewFormats.Length);
+        }
+
+        internal readonly void PackInto(ref WGPU.SurfaceConfiguration baseStruct, ref PayloadWriter payload)
+        {
+            baseStruct.Device = Device;
+            baseStruct.Format = Format;
+            baseStruct.Usage = Usage;
+            baseStruct.ViewFormats = payload.AddArray<TextureFormat>(ViewFormats.Length);
+            baseStruct.ViewFormatCount = (uint)ViewFormats.Length;
+
+            for (int i = 0; i < ViewFormats.Length; i++)
+                baseStruct.ViewFormats[i] = ViewFormats[i];
+
+            baseStruct.AlphaMode = AlphaMode;
+            baseStruct.Width = Width;
+            baseStruct.Height = Height;
+            baseStruct.PresentMode = PresentMode;
         }
     }
 }

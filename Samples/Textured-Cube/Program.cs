@@ -22,7 +22,6 @@ namespace TexturedCube
 
         private static IWindow? window;
         private static RenderPipelinePtr pipeline;
-        private static SwapChainPtr swapchain;
         private static DevicePtr device;
 
         private static BufferRange vertexBuffer;
@@ -30,6 +29,9 @@ namespace TexturedCube
         private static BindGroupPtr sceneBindGroup;
         private static BufferRange modelUniformBuffer;
         private static BindGroupPtr modelBindGroup;
+        private static SurfacePtr surface;
+        private static TextureViewPtr? swapchainView;
+        private static Vector2D<int> _last_framebufferSize = new(0, 0);
 
         struct Vertex
         {
@@ -130,7 +132,7 @@ namespace TexturedCube
                 powerPreference: PowerPreference.Undefined
             );
 
-            SurfacePtr surface = window!.CreateWebGPUSurface(wgpu, instance);
+            surface = window!.CreateWebGPUSurface(wgpu, instance);
 
             var features = adapter.EnumerateFeatures();
             var limits = adapter.GetLimits();
@@ -292,29 +294,6 @@ namespace TexturedCube
                 }
             );
 
-            Console.WriteLine("Creating Swapchain");
-
-            swapchain = device.CreateSwapChain(surface,
-                TextureUsage.RenderAttachment,
-                TextureFormat.Bgra8Unorm,
-                (uint)window!.FramebufferSize.X,
-                (uint)window!.FramebufferSize.Y,
-                PresentMode.Immediate);
-
-            window.FramebufferResize += size =>
-            {
-                if (size.X * size.Y == 0)
-                    return;
-
-                swapchain.Release();
-                swapchain = device.CreateSwapChain(surface,
-                TextureUsage.RenderAttachment,
-                TextureFormat.Bgra8Unorm,
-                (uint)size.X,
-                (uint)size.Y,
-                PresentMode.Immediate);
-            };
-
             Console.WriteLine("Creating Vertexbuffer");
 
 
@@ -355,15 +334,46 @@ namespace TexturedCube
 
         private static void W_Render(double deltaTime)
         {
-            var swapchainView = swapchain.GetCurrentTextureView();
+            var framebufferSize = window!.FramebufferSize;
+
+            if (framebufferSize.X * framebufferSize.Y == 0)
+                return;
+
+            if (_last_framebufferSize != framebufferSize)
+            {
+                _last_framebufferSize = framebufferSize;
+
+                surface.Configure(new Safe.SurfaceConfiguration
+                {
+                    AlphaMode = CompositeAlphaMode.Opaque,
+                    Device = device,
+                    Usage = TextureUsage.RenderAttachment,
+                    Format = TextureFormat.Bgra8Unorm,
+                    ViewFormats = new TextureFormat[] { TextureFormat.Bgra8Unorm },
+                    Width = (uint)framebufferSize.X,
+                    Height = (uint)framebufferSize.Y,
+                    PresentMode = PresentMode.Immediate
+                });
+            }
+
+            swapchainView?.Release();
+
+            var (swapChainTexture, _, status) = surface.GetCurrentTexture();
+            Debug.Assert(status == SurfaceGetCurrentTextureStatus.Success);
+
+            swapchainView = swapChainTexture.CreateView(
+                TextureFormat.Bgra8Unorm,
+                TextureViewDimension.Dimension2D, TextureAspect.All,
+                baseMipLevel: 0, mipLevelCount: 1,
+                baseArrayLayer: 0, arrayLayerCount: 1, label: "SwapchainView");
 
             var cmd = device.CreateCommandEncoder();
 
             var pass = cmd.BeginRenderPass(new Safe.RenderPassColorAttachment[]
             {
-                new(swapchainView, resolveTarget: null,
+                new(swapchainView.Value, resolveTarget: null,
                 LoadOp.Clear, StoreOp.Store, new Color(.06, .1, .1, 1))
-            }, Span<Safe.RenderPassTimestampWrite>.Empty, null,
+            }, null, null,
             null);
 
             pass.SetPipeline(pipeline);
@@ -399,7 +409,7 @@ namespace TexturedCube
 
             queue.Submit(new[] { cmd.Finish() });
 
-            swapchain.Present();
+            surface.Present();
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
+using WGPU = Silk.NET.WebGPU;
 
 namespace Silk.NET.WebGPU.Safe
 {
@@ -311,6 +312,49 @@ namespace Silk.NET.WebGPU.Safe
 
         public static implicit operator Surface*(SurfacePtr ptr) => ptr._ptr;
 
+        public void Configure(SurfaceConfiguration configuration)
+        {
+            WGPU.SurfaceConfiguration nativeConfig = default;
+
+            var payloadSizeCalculator = new PayloadSizeCalculator();
+            configuration.CalculatePayloadSize(ref payloadSizeCalculator);
+            payloadSizeCalculator.GetSize(out int size, out int stringPoolOffset);
+            
+            byte* ptr = stackalloc byte[size];
+            var payloadWriter = new PayloadWriter(size, ptr, ptr + stringPoolOffset);
+            configuration.PackInto(ref nativeConfig, ref payloadWriter);
+
+            _wgpu.SurfaceConfigure(_ptr, in nativeConfig);
+        }
+
+        public void GetCapabilities(AdapterPtr adapter, out SurfaceCapabilities capabilities)
+        {
+            WGPU.SurfaceCapabilities nativeCapabilities = default;
+
+            _wgpu.SurfaceGetCapabilities(_ptr, adapter, &nativeCapabilities);
+
+            capabilities = SurfaceCapabilities.UnpackFrom(&nativeCapabilities);
+
+            _wgpu.SurfaceCapabilitiesFreeMembers(nativeCapabilities);
+        }
+
+        public (TexturePtr texture, bool suboptimal, SurfaceGetCurrentTextureStatus status) GetCurrentTexture()
+        {
+            SurfaceTexture surfaceTexture = default;
+
+            _wgpu.SurfaceGetCurrentTexture(_ptr, &surfaceTexture);
+
+            return (
+                new TexturePtr(_wgpu, surfaceTexture.Texture), 
+                surfaceTexture.Suboptimal, 
+                surfaceTexture.Status
+            );
+        }
+
+        public void Present() => _wgpu.SurfacePresent(_ptr);
+
+        public void Unconfigure() => _wgpu.SurfaceUnconfigure(_ptr);
+
         public TextureFormat GetPreferredFormat(AdapterPtr adapter)
         {
             return _wgpu.SurfaceGetPreferredFormat(_ptr, adapter);
@@ -321,34 +365,6 @@ namespace Silk.NET.WebGPU.Safe
         public void Release() => _wgpu.SurfaceRelease(_ptr);
     }
     
-    public readonly unsafe partial struct SwapChainPtr
-    {
-        private readonly WebGPU _wgpu;
-        private readonly SwapChain* _ptr;
-
-        public SwapChainPtr(WebGPU wgpu, SwapChain* ptr)
-        {
-            _wgpu = wgpu;
-            _ptr = ptr;
-        }
-
-        public static implicit operator SwapChain*(SwapChainPtr ptr) => ptr._ptr;
-
-        public TextureViewPtr GetCurrentTextureView()
-        {
-            return new(_wgpu, _wgpu.SwapChainGetCurrentTextureView(_ptr));
-        }
-
-        public void Present()
-        {
-            _wgpu.SwapChainPresent(_ptr);
-        }
-
-        public void Reference() => _wgpu.SwapChainReference(_ptr);
-
-        public void Release() => _wgpu.SwapChainRelease(_ptr);
-    }
-
     public readonly unsafe partial struct TexturePtr
     {
         private readonly WebGPU _wgpu;

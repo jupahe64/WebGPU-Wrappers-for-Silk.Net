@@ -17,20 +17,20 @@ namespace Silk.NET.WebGPU.Safe
 
         public static implicit operator CommandEncoder*(CommandEncoderPtr ptr) => ptr._ptr;
 
-        public ComputePassEncoderPtr BeginComputePass(ReadOnlySpan<ComputePassTimestampWrite> timestampWrites, string? label = null)
+        public ComputePassEncoderPtr BeginComputePass(ComputePassTimestampWrites? timestampWrites, string? label = null)
         {
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
 
-            var timestampWritesPtr = stackalloc WGPU.ComputePassTimestampWrite[timestampWrites.Length];
+            WGPU.ComputePassTimestampWrites timestampWritesNative = default;
 
-            for (int i = 0; i < timestampWrites.Length; i++)
-                timestampWritesPtr[i] = timestampWrites[i].Pack();
+            if (timestampWrites != null)
+                timestampWritesNative = timestampWrites.GetValueOrDefault().Pack();
 
             var descriptor = new ComputePassDescriptor
             {
                 Label = marshalledLabel.Ptr,
-                TimestampWriteCount = (uint)timestampWrites.Length,
-                TimestampWrites = timestampWritesPtr
+                TimestampWrites = timestampWrites.HasValue ?
+                    &timestampWritesNative : null,
             };
 
             return new(_wgpu, _wgpu.CommandEncoderBeginComputePass(_ptr, in descriptor));
@@ -38,7 +38,7 @@ namespace Silk.NET.WebGPU.Safe
 
         public RenderPassEncoderPtr BeginRenderPass(
             ReadOnlySpan<RenderPassColorAttachment> colorAttachments, 
-            ReadOnlySpan<RenderPassTimestampWrite> timestampWrites, 
+            RenderPassTimestampWrites? timestampWrites, 
             RenderPassDepthStencilAttachment? depthStencilAttachment,
             QuerySetPtr? occlusionQuerySet,
             uint? maxDrawCount = null,
@@ -46,10 +46,10 @@ namespace Silk.NET.WebGPU.Safe
         {
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
 
-            var timestampWritesPtr = stackalloc WGPU.RenderPassTimestampWrite[timestampWrites.Length];
+            WGPU.RenderPassTimestampWrites timestampWritesNative = default;
 
-            for (int i = 0; i < timestampWrites.Length; i++)
-                timestampWritesPtr[i] = timestampWrites[i].Pack();
+            if (timestampWrites != null)
+                timestampWritesNative = timestampWrites.GetValueOrDefault().Pack();
 
             var colorAttachmentsPtr = stackalloc WGPU.RenderPassColorAttachment[colorAttachments.Length];
 
@@ -75,8 +75,8 @@ namespace Silk.NET.WebGPU.Safe
                 NextInChain = maxDrawCount.HasValue ? 
                     (ChainedStruct*)&maxDrawCountStruct : null,
                 Label = marshalledLabel.Ptr,
-                TimestampWriteCount = (uint)timestampWrites.Length,
-                TimestampWrites = timestampWritesPtr,
+                TimestampWrites = timestampWrites.HasValue ? 
+                    &timestampWritesNative : null,
                 ColorAttachmentCount = (uint)colorAttachments.Length,
                 ColorAttachments = colorAttachmentsPtr,
                 DepthStencilAttachment = depthStencilAttachmentPtr,

@@ -185,13 +185,13 @@ namespace Silk.NET.WebGPU.Safe
                 Layout = layout ?? (PipelineLayout*)null
             };
 
-            var payloadSizeTracker = new PayloadSizeTracker();
-            stage.CalculatePayloadSize(ref payloadSizeTracker);
-            payloadSizeTracker.GetSize(out int size, out int stringPoolOffset);
+            var payloadSizeCalculator = new PayloadSizeCalculator();
+            stage.CalculatePayloadSize(ref payloadSizeCalculator);
+            payloadSizeCalculator.GetSize(out int size, out int stringPoolOffset);
 
             byte* ptr = stackalloc byte[size];
-            var payloadAllocator = new PayloadAllocator(size, ptr, ptr + stringPoolOffset);
-            stage.PackInto(ref descriptor.Compute, ref payloadAllocator);
+            var payloadWriter = new PayloadWriter(size, ptr, ptr + stringPoolOffset);
+            stage.PackInto(ref descriptor.Compute, ref payloadWriter);
 
             return new ComputePipelinePtr(_wgpu, _wgpu.DeviceCreateComputePipeline(_ptr, in descriptor));
         }
@@ -209,13 +209,13 @@ namespace Silk.NET.WebGPU.Safe
                 Layout = layout ?? (PipelineLayout*)null
             };
 
-            var payloadSizeTracker = new PayloadSizeTracker();
-            compute.CalculatePayloadSize(ref payloadSizeTracker);
-            payloadSizeTracker.GetSize(out int size, out int stringPoolOffset);
+            var payloadSizeCalculator = new PayloadSizeCalculator();
+            compute.CalculatePayloadSize(ref payloadSizeCalculator);
+            payloadSizeCalculator.GetSize(out int size, out int stringPoolOffset);
 
             byte* ptr = stackalloc byte[size];
-            var payloadAllocator = new PayloadAllocator(size, ptr, ptr + stringPoolOffset);
-            compute.PackInto(ref descriptor.Compute, ref payloadAllocator);
+            var payloadWriter = new PayloadWriter(size, ptr, ptr + stringPoolOffset);
+            compute.PackInto(ref descriptor.Compute, ref payloadWriter);
 
             _wgpu.DeviceCreateComputePipelineAsync(_ptr, in descriptor, s_CreateComputePipelineCallback, (void*)key);
 
@@ -253,7 +253,7 @@ namespace Silk.NET.WebGPU.Safe
                     Label = marshalledLabel.Ptr,
                     Type = type,
                     Count = count,
-                    PipelineStatisticsCount = (uint)statistics.Length,
+                    PipelineStatisticCount = (uint)statistics.Length,
                     PipelineStatistics = ptr,
                 };
 
@@ -273,7 +273,7 @@ namespace Silk.NET.WebGPU.Safe
                 var descriptor = new RenderBundleEncoderDescriptor
                 {
                     Label = marshalledLabel.Ptr,
-                    ColorFormatsCount = (uint)colorFormats.Length,
+                    ColorFormatCount = (uint)colorFormats.Length,
                     ColorFormats = ptr,
                     DepthStencilFormat = depthStencilFormat,
                     DepthReadOnly = depthReadOnly,
@@ -312,13 +312,13 @@ namespace Silk.NET.WebGPU.Safe
         {
             var native = default(WGPU.RenderPipelineDescriptor);
 
-            var payloadSizeTracker = new PayloadSizeTracker();
-            descriptor.CalculatePayloadSize(ref payloadSizeTracker);
-            payloadSizeTracker.GetSize(out int size, out int stringPoolOffset);
+            var payloadSizeCalculator = new PayloadSizeCalculator();
+            descriptor.CalculatePayloadSize(ref payloadSizeCalculator);
+            payloadSizeCalculator.GetSize(out int size, out int stringPoolOffset);
 
             byte* ptr = stackalloc byte[size];
-            var payloadAllocator = new PayloadAllocator(size, ptr, ptr + stringPoolOffset);
-            descriptor.PackInto(ref native, ref payloadAllocator);
+            var payloadWriter = new PayloadWriter(size, ptr, ptr + stringPoolOffset);
+            descriptor.PackInto(ref native, ref payloadWriter);
 
             return new RenderPipelinePtr(_wgpu, _wgpu.DeviceCreateRenderPipeline(_ptr, in native));
         }
@@ -353,13 +353,13 @@ namespace Silk.NET.WebGPU.Safe
 
             var native = default(WGPU.RenderPipelineDescriptor);
 
-            var payloadSizeTracker = new PayloadSizeTracker();
-            descriptor.CalculatePayloadSize(ref payloadSizeTracker);
-            payloadSizeTracker.GetSize(out int size, out int stringPoolOffset);
+            var payloadSizeCalculator = new PayloadSizeCalculator();
+            descriptor.CalculatePayloadSize(ref payloadSizeCalculator);
+            payloadSizeCalculator.GetSize(out int size, out int stringPoolOffset);
 
             byte* ptr = stackalloc byte[size];
-            var payloadAllocator = new PayloadAllocator(size, ptr, ptr + stringPoolOffset);
-            descriptor.PackInto(ref native, ref payloadAllocator);
+            var payloadWriter = new PayloadWriter(size, ptr, ptr + stringPoolOffset);
+            descriptor.PackInto(ref native, ref payloadWriter);
 
             _wgpu.DeviceCreateRenderPipelineAsync(_ptr, in native, s_CreateRenderPipelineCallback, (void*)key);
 
@@ -413,14 +413,14 @@ namespace Silk.NET.WebGPU.Safe
         {
             var descriptor = default(WGPU.ShaderModuleDescriptor);
 
-            var payloadSizeTracker = new PayloadSizeTracker();
-            ShaderModuleDescriptor.CalculatePayloadSize(ref payloadSizeTracker,
+            var payloadSizeCalculator = new PayloadSizeCalculator();
+            ShaderModuleDescriptor.CalculatePayloadSize(ref payloadSizeCalculator,
                 label, compilationHints);
-            payloadSizeTracker.GetSize(out int size, out int stringPoolOffset);
+            payloadSizeCalculator.GetSize(out int size, out int stringPoolOffset);
 
             byte* ptr = stackalloc byte[size];
-            var payloadAllocator = new PayloadAllocator(size, ptr, ptr + stringPoolOffset);
-            ShaderModuleDescriptor.PackInto(ref descriptor, ref payloadAllocator,
+            var payloadWriter = new PayloadWriter(size, ptr, ptr + stringPoolOffset);
+            ShaderModuleDescriptor.PackInto(ref descriptor, ref payloadWriter,
                 label, compilationHints);
 
             fixed (byte* codePtr = code)
@@ -465,14 +465,14 @@ namespace Silk.NET.WebGPU.Safe
 
             var descriptor = default(WGPU.ShaderModuleDescriptor);
 
-            var payloadSizeTracker = new PayloadSizeTracker();
-            ShaderModuleDescriptor.CalculatePayloadSize(ref payloadSizeTracker,
+            var payloadSizeCalculator = new PayloadSizeCalculator();
+            ShaderModuleDescriptor.CalculatePayloadSize(ref payloadSizeCalculator,
                 label, compilationHints);
-            payloadSizeTracker.GetSize(out int size, out int stringPoolOffset);
+            payloadSizeCalculator.GetSize(out int size, out int stringPoolOffset);
 
             byte* ptr = stackalloc byte[size];
-            var payloadAllocator = new PayloadAllocator(size, ptr, ptr + stringPoolOffset);
-            ShaderModuleDescriptor.PackInto(ref descriptor, ref payloadAllocator,
+            var payloadWriter = new PayloadWriter(size, ptr, ptr + stringPoolOffset);
+            ShaderModuleDescriptor.PackInto(ref descriptor, ref payloadWriter,
                 label, compilationHints);
 
             fixed (uint* codePtr = code)
@@ -491,24 +491,6 @@ namespace Silk.NET.WebGPU.Safe
 
                 return new ShaderModulePtr(_wgpu, _wgpu.DeviceCreateShaderModule(_ptr, in descriptor));
             }
-        }
-
-        public SwapChainPtr CreateSwapChain(SurfacePtr surface, TextureUsage usage, TextureFormat format, 
-            uint width, uint height, PresentMode presentMode, string? label = null)
-        {
-            using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
-
-            var descriptor = new SwapChainDescriptor
-            {
-                Label = marshalledLabel.Ptr,
-                Usage = usage,
-                Format = format,
-                Width = width,
-                Height = height,
-                PresentMode = presentMode
-            };
-
-            return new SwapChainPtr(_wgpu, _wgpu.DeviceCreateSwapChain(_ptr, surface, in descriptor));
         }
 
         public TexturePtr CreateTexture(TextureUsage usage, TextureDimension dimension,

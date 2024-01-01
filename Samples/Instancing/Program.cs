@@ -59,7 +59,6 @@ namespace Instancing
         private static IWindow? window;
         private static SurfacePtr surface;
         private static RenderPipelinePtr pipeline;
-        private static SwapChainPtr? swapchain;
         private static TexturePtr? depthBuffer;
         private static TextureViewPtr? depthBufferView;
         private static DevicePtr device;
@@ -72,7 +71,7 @@ namespace Instancing
 
         const uint InstanceCount = 1000;
 
-        private static ParticleOnPath[] particles = Enumerable.Repeat(0, (int)InstanceCount).Select(
+        private static readonly ParticleOnPath[] particles = Enumerable.Repeat(0, (int)InstanceCount).Select(
             _=> new ParticleOnPath
             {
                 OffsetOnPath        = Random.Shared.NextSingle(),
@@ -364,7 +363,7 @@ namespace Instancing
                             blendState: null,
                             ColorWriteMask.All
                         )
-                    }
+                }
                 }
             );
 
@@ -407,21 +406,30 @@ namespace Instancing
         }
 
         private static Vector2D<int> _last_framebufferSize = new(0, 0);
+        private static TextureViewPtr? swapchainView;
 
         private static void W_Render(double deltaTime)
         {
             var framebufferSize = window!.FramebufferSize;
+
+            if (framebufferSize.X * framebufferSize.Y == 0)
+                return;
+
             if (_last_framebufferSize != framebufferSize)
             {
                 _last_framebufferSize = framebufferSize;
 
-                swapchain?.Release();
-                swapchain = device.CreateSwapChain(surface,
-                TextureUsage.RenderAttachment,
-                TextureFormat.Bgra8Unorm,
-                (uint)window!.FramebufferSize.X,
-                (uint)window!.FramebufferSize.Y,
-                PresentMode.Immediate);
+                surface.Configure(new Safe.SurfaceConfiguration
+                {
+                    AlphaMode = CompositeAlphaMode.Opaque,
+                    Device = device,
+                    Usage = TextureUsage.RenderAttachment,
+                    Format = TextureFormat.Bgra8Unorm,
+                    ViewFormats = new TextureFormat[] { TextureFormat.Bgra8Unorm },
+                    Width = (uint)framebufferSize.X,
+                    Height = (uint)framebufferSize.Y,
+                    PresentMode = PresentMode.Immediate
+                });
 
                 depthBuffer = device.CreateTexture(TextureUsage.RenderAttachment, TextureDimension.Dimension2D, new Extent3D
                 {
@@ -434,20 +442,29 @@ namespace Instancing
                 }, label: "DepthBuffer");
 
                 depthBufferView?.Release();
-                depthBufferView = depthBuffer.Value.CreateView(TextureFormat.Depth16Unorm, TextureViewDimension.Dimension2D, 
-                    TextureAspect.All, baseMipLevel: 0, mipLevelCount: 1, baseArrayLayer: 0, arrayLayerCount: 1, 
+                depthBufferView = depthBuffer.Value.CreateView(TextureFormat.Depth16Unorm, TextureViewDimension.Dimension2D,
+                    TextureAspect.All, baseMipLevel: 0, mipLevelCount: 1, baseArrayLayer: 0, arrayLayerCount: 1,
                     label: "DepthBuffer - View");
             }
 
-            var swapchainView = swapchain!.Value.GetCurrentTextureView();
+            swapchainView?.Release();
+
+            var (swapChainTexture, _, status) = surface.GetCurrentTexture();
+            Debug.Assert(status == SurfaceGetCurrentTextureStatus.Success);
+
+            swapchainView = swapChainTexture.CreateView(
+                TextureFormat.Bgra8Unorm,
+                TextureViewDimension.Dimension2D, TextureAspect.All,
+                baseMipLevel: 0, mipLevelCount: 1,
+                baseArrayLayer: 0, arrayLayerCount: 1, label: "SwapchainView");
 
             var cmd = device.CreateCommandEncoder();
 
             var pass = cmd.BeginRenderPass(new Safe.RenderPassColorAttachment[]
             {
-                new(swapchainView, resolveTarget: null,
+                new(swapchainView.Value, resolveTarget: null,
                 LoadOp.Clear, StoreOp.Store, new Color(.6, .9, 1, 1))
-            }, Span<Safe.RenderPassTimestampWrite>.Empty, 
+            }, null, 
             new Safe.RenderPassDepthStencilAttachment(depthBufferView!.Value, LoadOp.Clear, StoreOp.Discard, 1f, false,
                 /*stencil*/ LoadOp.Clear, StoreOp.Discard, 0, true),
             null);
@@ -538,7 +555,7 @@ namespace Instancing
 
             queue.Submit(new[] { cmd.Finish() });
 
-            swapchain.Value.Present();
+            surface.Present();
         }
     }
 }

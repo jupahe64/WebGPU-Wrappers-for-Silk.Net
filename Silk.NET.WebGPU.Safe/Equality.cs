@@ -26,7 +26,6 @@ foreach(string typeName in new string[]{
     "Sampler",
     "ShaderModule",
     "Surface",
-    "SwapChain",
     "Texture",
     "TextureView",
 }){
@@ -472,27 +471,6 @@ namespace Silk.NET.WebGPU.Safe
             return x._ptr == y._ptr && x._wgpu == y._wgpu;
         }
         public static bool operator !=(SurfacePtr x, SurfacePtr y)
-        {
-            return !(x == y);
-        }
-    }
-
-
-    public unsafe partial struct SwapChainPtr
-    {
-        public override bool Equals(object? obj)
-        {
-            return obj is SwapChainPtr c && this == c;
-        }
-        public override int GetHashCode()
-        {
-            return ((IntPtr)_ptr).GetHashCode() ^ _wgpu.GetHashCode();
-        }
-        public static bool operator ==(SwapChainPtr x, SwapChainPtr y)
-        {
-            return x._ptr == y._ptr && x._wgpu == y._wgpu;
-        }
-        public static bool operator !=(SwapChainPtr x, SwapChainPtr y)
         {
             return !(x == y);
         }

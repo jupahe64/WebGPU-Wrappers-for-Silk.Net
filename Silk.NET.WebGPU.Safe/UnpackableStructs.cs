@@ -24,7 +24,10 @@ namespace Silk.NET.WebGPU.Safe
                     LineNum = native->Messages[i].LineNum,
                     LinePos = native->Messages[i].LinePos,
                     Offset = native->Messages[i].Offset,
-                    Length = native->Messages[i].Length
+                    Length = native->Messages[i].Length,
+                    Utf16LinePos = native->Messages[i].Utf16LinePos,
+                    Utf16Offset = native->Messages[i].Utf16Offset,
+                    Utf16Length = native->Messages[i].Utf16Length,
                 };
             }
                 
@@ -37,7 +40,8 @@ namespace Silk.NET.WebGPU.Safe
     }
 
     public record struct CompilationMessage(string? Message, CompilationMessageType Type, 
-        ulong LineNum, ulong LinePos, ulong Offset, ulong Length);
+        ulong LineNum, ulong LinePos, ulong Offset, ulong Length,
+        ulong Utf16LinePos, ulong Utf16Offset, ulong Utf16Length);
 
     public unsafe struct AdapterProperties
     {
@@ -82,6 +86,38 @@ namespace Silk.NET.WebGPU.Safe
             };
 
             return properties;
+        }
+    }
+
+    public unsafe partial struct SurfaceCapabilities
+    {
+        public unsafe TextureFormat[] Formats;
+
+        public unsafe PresentMode[] PresentModes;
+
+        public CompositeAlphaMode[] AlphaModes;
+
+        internal static SurfaceCapabilities UnpackFrom(WGPU.SurfaceCapabilities* native)
+        {
+            var formats = new TextureFormat[native->FormatCount];
+            var presentModes = new PresentMode[native->PresentModeCount];
+            var alphaModes = new CompositeAlphaMode[native->AlphaModeCount];
+
+            for (int i = 0; i < formats.Length; i++)
+                formats[i] = native->Formats[i];
+
+            for (int i = 0; i < presentModes.Length; i++)
+                presentModes[i] = native->PresentModes[i];
+
+            for (int i = 0; i < alphaModes.Length; i++)
+                alphaModes[i] = native->AlphaModes[i];
+
+            return new SurfaceCapabilities
+            {
+                Formats = formats,
+                PresentModes = presentModes,
+                AlphaModes = alphaModes
+            };
         }
     }
 }

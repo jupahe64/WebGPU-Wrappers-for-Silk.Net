@@ -25,7 +25,6 @@ var typeNames = new string[]{
     "Sampler",
     "ShaderModule",
     "Surface",
-    "SwapChain",
     "Texture",
     "TextureView",
 };
@@ -329,19 +328,6 @@ namespace Silk.NET.WebGPU.Safe
             return (nint)wrapper.Ptr;
         }
 
-        public static WebGPU GetAPI(this SwapChainPtr wrapper)
-        {
-            return wrapper.API;
-        }
-        public static SwapChain* GetPtr(this SwapChainPtr wrapper)
-        {
-            return wrapper.Ptr;
-        }
-        public static IntPtr GetIntPtr(this SwapChainPtr wrapper)
-        {
-            return (nint)wrapper.Ptr;
-        }
-
         public static WebGPU GetAPI(this TexturePtr wrapper)
         {
             return wrapper.API;
@@ -506,13 +492,6 @@ namespace Silk.NET.WebGPU.Safe
     {
         internal WebGPU API => _wgpu;
         internal Surface* Ptr => _ptr;
-    }
-
-
-    public unsafe partial struct SwapChainPtr
-    {
-        internal WebGPU API => _wgpu;
-        internal SwapChain* Ptr => _ptr;
     }
 
 

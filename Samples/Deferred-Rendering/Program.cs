@@ -28,7 +28,6 @@ namespace DeferredRendering
 
         private static IWindow? window;
         private static RenderPipelinePtr pipeline;
-        private static SwapChainPtr? swapchain;
         private static DevicePtr device;
 
         private static BufferRange vertexBuffer;
@@ -526,6 +525,7 @@ namespace DeferredRendering
         private static (TexturePtr tex, TextureViewPtr view)? requestedAlbedoTexture = null;
         private static (TexturePtr tex, TextureViewPtr view)? requestedEmissionTexture = null;
         private static DeferredShader? deferredShader;
+        private static TextureViewPtr? swapchainView;
 
         private static void W_Render(double deltaTime)
         {
@@ -541,16 +541,30 @@ namespace DeferredRendering
             {
                 _last_framebufferSize = framebufferSize;
 
-                swapchain?.Release();
-                swapchain = device.CreateSwapChain(surface,
-                TextureUsage.RenderAttachment,
-                TextureFormat.Bgra8Unorm,
-                (uint)framebufferSize.X,
-                (uint)framebufferSize.Y,
-                PresentMode.Immediate);
+                surface.Configure(new Safe.SurfaceConfiguration
+                {
+                    AlphaMode = CompositeAlphaMode.Opaque,
+                    Device = device,
+                    Usage = TextureUsage.RenderAttachment,
+                    Format = TextureFormat.Bgra8Unorm,
+                    ViewFormats = new TextureFormat[] { TextureFormat.Bgra8Unorm },
+                    Width = (uint)framebufferSize.X,
+                    Height = (uint)framebufferSize.Y,
+                    PresentMode = PresentMode.Immediate
+                });
             }
 
-            var swapchainView = swapchain!.Value.GetCurrentTextureView();
+            swapchainView?.Release();
+
+            var (swapChainTexture, _, status) = surface.GetCurrentTexture();
+
+            Debug.Assert(status == SurfaceGetCurrentTextureStatus.Success);
+
+            swapchainView = swapChainTexture.CreateView(
+                TextureFormat.Bgra8Unorm,
+                TextureViewDimension.Dimension2D, TextureAspect.All,
+                baseMipLevel: 0, mipLevelCount: 1,
+                baseArrayLayer: 0, arrayLayerCount: 1, label: "SwapchainView");
 
             var cmd = device.CreateCommandEncoder();
 
@@ -694,9 +708,9 @@ namespace DeferredRendering
 
             var pass = cmd.BeginRenderPass(new Safe.RenderPassColorAttachment[]
             {
-                new(swapchainView, resolveTarget: null,
+                new(swapchainView.Value, resolveTarget: null,
                 LoadOp.Clear, StoreOp.Store, new Color(.1, .1, .1, 1))
-            }, Span<Safe.RenderPassTimestampWrite>.Empty, null,
+            }, null, null,
             null);
 
             imguiController!.Render(pass);
@@ -705,7 +719,7 @@ namespace DeferredRendering
 
             queue.Submit(new[] { cmd.Finish() });
 
-            swapchain.Value.Present();
+            surface.Present();
         }
     }
 }

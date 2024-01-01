@@ -1,4 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<RepositoryType>git</RepositoryType>
+		<RepositoryUrl>https://github.com/jupahe64/WebGPU-Wrappers-for-Silk.Net</RepositoryUrl>
+
+		<Title>Silk.NET WebGPU Wrappers ImGUI</Title>
+		<Authors>jupahe64</Authors>
+		<PackageId>SilkDotNet.WebGPUWrappers.ImGui</PackageId>
+		<Version>0.2.0</Version>
+	</PropertyGroup>
 
 	<PropertyGroup>
 		<TargetFrameworks>netstandard2.0;netstandard2.1;netcoreapp3.1;net5.0</TargetFrameworks>
@@ -8,12 +17,12 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Silk.NET.WebGPU" Version="2.17.1-build3759.0" />
+		<PackageReference Include="Silk.NET.WebGPU" Version="2.20.0" />
 		<PackageReference Include="ImGui.NET" Version="1.89.7.1" />
-		<PackageReference Include="Silk.NET.Input" Version="2.17.1-build3759.0" />
-		<PackageReference Include="Silk.NET.Input.Extensions" Version="2.17.1-build3759.0" />
-		<PackageReference Include="Silk.NET.WebGPU" Version="2.17.1-build3759.0" />
-		<PackageReference Include="Silk.NET.Windowing" Version="2.17.1-build3759.0" />
+		<PackageReference Include="Silk.NET.Input" Version="2.20.0" />
+		<PackageReference Include="Silk.NET.Input.Extensions" Version="2.20.0" />
+		<PackageReference Include="Silk.NET.WebGPU" Version="2.20.0" />
+		<PackageReference Include="Silk.NET.Windowing" Version="2.20.0" />
 	</ItemGroup>
 
 	<ItemGroup>

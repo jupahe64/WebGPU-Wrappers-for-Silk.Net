@@ -120,7 +120,7 @@ namespace Silk.NET.WebGPU.Safe
                     DefaultQueue = new QueueDescriptor(label: marshalledDefaultQueueLabel.Ptr),
                     RequiredLimits = requiredLimits == null ? null : &_requiredLimits,
                     RequiredFeatures = requiredFeaturesPtr,
-                    RequiredFeaturesCount = (uint)requiredFeatures.Length,
+                    RequiredFeatureCount = (uint)requiredFeatures.Length,
                     Label = marshalledLabel.Ptr
                 };
 
