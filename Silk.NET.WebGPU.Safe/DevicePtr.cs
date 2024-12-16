@@ -242,23 +242,18 @@ namespace Silk.NET.WebGPU.Safe
             return new PipelineLayoutPtr(_wgpu, _wgpu.DeviceCreatePipelineLayout(_ptr, in descriptor));
         }
 
-        public QuerySetPtr CreateQuerySet(QueryType type, uint count, ReadOnlySpan<PipelineStatisticName> statistics = default, string? label = null)
+        public QuerySetPtr CreateQuerySet(QueryType type, uint count, string? label = null)
         {
             using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
 
-            fixed (PipelineStatisticName* ptr = statistics)
+            var descriptor = new QuerySetDescriptor
             {
-                var descriptor = new QuerySetDescriptor
-                {
-                    Label = marshalledLabel.Ptr,
-                    Type = type,
-                    Count = count,
-                    PipelineStatisticCount = (uint)statistics.Length,
-                    PipelineStatistics = ptr,
-                };
+                Label = marshalledLabel.Ptr,
+                Type = type,
+                Count = count
+            };
 
-                return new QuerySetPtr(_wgpu, _wgpu.DeviceCreateQuerySet(_ptr, in descriptor));
-            }
+            return new QuerySetPtr(_wgpu, _wgpu.DeviceCreateQuerySet(_ptr, in descriptor));
         }
 
         public RenderBundleEncoderPtr CreateRenderBundleEncoder(

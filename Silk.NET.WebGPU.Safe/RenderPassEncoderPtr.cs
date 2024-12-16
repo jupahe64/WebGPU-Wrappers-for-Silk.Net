@@ -21,11 +21,6 @@ namespace Silk.NET.WebGPU.Safe
             _wgpu.RenderPassEncoderBeginOcclusionQuery(_ptr, queryIndex);
         }
 
-        public void BeginPipelineStatisticsQuery(QuerySetPtr querySet, uint queryIndex)
-        {
-            _wgpu.RenderPassEncoderBeginPipelineStatisticsQuery(_ptr, querySet, queryIndex);
-        }
-
         public void Draw(uint vertexCount, uint instanceCount, uint firstVertex, uint firstInstance)
         {
             _wgpu.RenderPassEncoderDraw(_ptr, vertexCount, instanceCount, firstVertex, firstInstance);
@@ -54,11 +49,6 @@ namespace Silk.NET.WebGPU.Safe
         public void EndOcclusionQuery()
         {
             _wgpu.RenderPassEncoderEndOcclusionQuery(_ptr);
-        }
-
-        public void EndPipelineStatisticsQuery()
-        {
-            _wgpu.RenderPassEncoderEndPipelineStatisticsQuery(_ptr);
         }
 
         public void ExecuteBundles(ReadOnlySpan<RenderBundlePtr> bundles)

@@ -502,7 +502,7 @@ namespace ImGuiDemo
             ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 4);
             ImGui.PushFont(quicksandFont);
 
-            ImGui.DockSpaceOverViewport(ImGui.GetMainViewport());
+            ImGui.DockSpaceOverViewport(ImGui.GetMainViewport().ID);
 
             ImGui.ShowDemoWindow();
 

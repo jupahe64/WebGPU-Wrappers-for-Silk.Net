@@ -13,6 +13,7 @@ namespace Silk.NET.WebGPU.Safe
     public readonly unsafe partial struct AdapterPtr
     {
         private static readonly RentalStorage<(WebGPU, TaskCompletionSource<DevicePtr>)> s_deviceRequests = new();
+        private static readonly RentalStorage<TaskCompletionSource<AdapterInfo>> s_infoRequests = new();
 
         private static void DeviceRequestCallback(RequestDeviceStatus status, Device* device, byte* message, void* data)
         {
@@ -28,6 +29,12 @@ namespace Silk.NET.WebGPU.Safe
 
             task.SetResult(new DevicePtr(wgpu, device));
         }
+        
+        private static void InfoRequestCallback(WGPU.AdapterInfo info, void* data)
+        {
+            var task = s_infoRequests.GetAndReturn((int)data);
+            task.SetResult(AdapterInfo.UnpackFrom(&info));
+        }
 
         private static readonly List<DeviceLostCallback> s_deviceLostCallbacks = new();
 
@@ -41,6 +48,9 @@ namespace Silk.NET.WebGPU.Safe
 
         private static readonly PfnRequestDeviceCallback 
             s_DeviceRequestCallback = new(DeviceRequestCallback);
+        
+        private static readonly PfnAdapterRequestAdapterInfoCallback 
+            s_InfoRequestCallback = new(InfoRequestCallback);
 
         private static readonly PfnDeviceLostCallback s_DeviceLostCallback = new(DeviceLostCallback);
 
@@ -87,6 +97,14 @@ namespace Silk.NET.WebGPU.Safe
             return _wgpu.AdapterHasFeature(_ptr, feature);
         }
 
+        public Task<AdapterInfo> RequestAdapterInfo()
+        {
+            var task = new TaskCompletionSource<AdapterInfo>();
+            int key = s_infoRequests.Rent(task);
+            _wgpu.AdapterRequestAdapterInfo(_ptr, s_InfoRequestCallback, (void*)key);
+            return task.Task;
+        }
+
         public Task<DevicePtr> RequestDevice(
             Limits? requiredLimits, FeatureName[]? requiredFeatures,
             DeviceLostCallback? deviceLostCallback, string? defaultQueueLabel, string ? label)
@@ -109,7 +127,7 @@ namespace Silk.NET.WebGPU.Safe
                 _requiredLimits.Limits = requiredLimits.Value;
             }
 
-            requiredFeatures ??= Array.Empty<FeatureName>();
+            requiredFeatures ??= [];
 
             fixed (FeatureName* requiredFeaturesPtr = requiredFeatures)
             {

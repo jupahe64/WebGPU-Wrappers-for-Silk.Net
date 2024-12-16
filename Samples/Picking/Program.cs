@@ -917,7 +917,7 @@ namespace Picking
             ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 4);
             ImGui.PushFont(quicksandFont);
 
-            ImGui.DockSpaceOverViewport(ImGui.GetMainViewport());
+            ImGui.DockSpaceOverViewport(ImGui.GetMainViewport().ID);
 
             ImGui.ShowDemoWindow();
 
@@ -991,10 +991,10 @@ namespace Picking
                 var imageButtonSize = ImGui.GetContentRegionAvail().X;
                 if (ImGui.ImageButton("ChooseTextureAlbedo", modelTextureAlbedo.view.GetIntPtr(), new(imageButtonSize)))
                 {
-                    var files = Dialogs.OpenFileDialog(title: "Choose Albedo Texture", filterName: "Image files", 
-                        filterPatterns: supportedImageFormatPatterns);
+                    var (_, files) = TinyDialogs.OpenFileDialog(title: "Choose Albedo Texture", 
+                        filter: new FileFilter("Image files", supportedImageFormatPatterns));
 
-                    if (files?.Count() == 1)
+                    if (files.Count() == 1)
                     {
                         using var stream = new FileStream(files.First(), FileMode.Open);
 
@@ -1020,10 +1020,10 @@ namespace Picking
                 imageButtonSize = ImGui.GetContentRegionAvail().X;
                 if (ImGui.ImageButton("ChooseTextureEmission", modelTextureEmission.view.GetIntPtr(), new(imageButtonSize)))
                 {
-                    var files = Dialogs.OpenFileDialog(title: "Choose Emission Texture", filterName: "Image files", 
-                        filterPatterns: supportedImageFormatPatterns);
+                    var (_, files) = TinyDialogs.OpenFileDialog(title: "Choose Emission Texture", 
+                        filter: new FileFilter("Image files", supportedImageFormatPatterns));
 
-                    if (files?.Count() == 1)
+                    if (files.Count() == 1)
                     {
                         using var stream = new FileStream(files.First(), FileMode.Open);
 

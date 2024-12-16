@@ -26,7 +26,7 @@ namespace Silk.NET.WebGPU.Extensions.ImGui
         private IView _view;
         private IInputContext _input;
         private readonly List<char> _pressedChars = new List<char>();
-        private IKeyboard _keyboard;
+        private IKeyboard? _keyboard;
 
         // Device objects
         private BufferRange _vertexBuffer;
@@ -45,6 +45,7 @@ namespace Silk.NET.WebGPU.Extensions.ImGui
 
         private readonly Dictionary<TextureViewPtr, BindGroupPtr> _bindGroupsByView = new();
         private bool _frameBegun;
+        private List<(ImGuiKey key, bool isDown)> _keyEvents = new();
 
         private static ulong NextValidBufferSize(ulong size) => (size + 15) / 16 * 16;
 
@@ -100,11 +101,38 @@ namespace Silk.NET.WebGPU.Extensions.ImGui
             io.BackendFlags |= ImGuiBackendFlags.RendererHasVtxOffset;
 
             CreateDeviceResources(gd, colorOutputFormat);
-            SetKeyMappings();
 
             SetPerFrameImGuiData(1f / 60f);
 
             BeginFrame();
+        }
+
+        private bool TryDecodeKey(Key key, int scancode, out ImGuiKey decodedKey)
+        {
+            decodedKey = key switch
+            {
+                Key.Tab => ImGuiKey.Tab,
+                Key.Left => ImGuiKey.LeftArrow,
+                Key.Right => ImGuiKey.RightArrow,
+                Key.Up => ImGuiKey.UpArrow,
+                Key.Down => ImGuiKey.DownArrow,
+                Key.PageUp => ImGuiKey.PageUp,
+                Key.PageDown => ImGuiKey.PageDown,
+                Key.Home => ImGuiKey.Home,
+                Key.End => ImGuiKey.End,
+                Key.Delete => ImGuiKey.Delete,
+                Key.Backspace => ImGuiKey.Backspace,
+                Key.Enter => ImGuiKey.Enter,
+                Key.Escape => ImGuiKey.Escape,
+                Key.A => ImGuiKey.A,
+                Key.C => ImGuiKey.C,
+                Key.V => ImGuiKey.V,
+                Key.X => ImGuiKey.X,
+                Key.Y => ImGuiKey.Y,
+                Key.Z => ImGuiKey.Z,
+                _ => ImGuiKey.None
+            };
+            return decodedKey != ImGuiKey.None;
         }
 
         public void MakeCurrent()
@@ -116,8 +144,34 @@ namespace Silk.NET.WebGPU.Extensions.ImGui
         {
             ImGuiNET.ImGui.NewFrame();
             _frameBegun = true;
+
+            if (_keyboard == _input.Keyboards[0])
+                return;
+            
+            if (_keyboard is not null)
+            {
+                _keyboard.KeyChar -= OnKeyChar;
+                _keyboard.KeyDown -= OnKeyDown;
+                _keyboard.KeyUp -= OnKeyUp;
+            }
+                
             _keyboard = _input.Keyboards[0];
             _keyboard.KeyChar += OnKeyChar;
+            _keyboard.KeyDown += OnKeyDown;
+            _keyboard.KeyUp += OnKeyUp;
+
+        }
+
+        private void OnKeyDown(IKeyboard arg1, Key arg2, int arg3)
+        {
+            if (TryDecodeKey(arg2, arg3, out var decodedKey))
+                _keyEvents.Add((decodedKey, true));
+        }
+        
+        private void OnKeyUp(IKeyboard arg1, Key arg2, int arg3)
+        {
+            if (TryDecodeKey(arg2, arg3, out var decodedKey))
+                _keyEvents.Add((decodedKey, false));
         }
 
         private void OnKeyChar(IKeyboard arg1, char arg2)
@@ -220,14 +274,12 @@ namespace Silk.NET.WebGPU.Extensions.ImGui
             io.MouseWheel = wheel.Y;
             io.MouseWheelH = wheel.X;
 
-            foreach (var key in keyEnumArr)
+            foreach (var entry in _keyEvents)
             {
-                if (key == Key.Unknown)
-                {
-                    continue;
-                }
-                io.KeysDown[(int)key] = keyboardState.IsKeyPressed(key);
+                io.AddKeyEvent(entry.key, entry.isDown);
             }
+            
+            _keyEvents.Clear();
 
             foreach (var c in _pressedChars)
             {
@@ -240,35 +292,6 @@ namespace Silk.NET.WebGPU.Extensions.ImGui
             io.KeyAlt = keyboardState.IsKeyPressed(Key.AltLeft) || keyboardState.IsKeyPressed(Key.AltRight);
             io.KeyShift = keyboardState.IsKeyPressed(Key.ShiftLeft) || keyboardState.IsKeyPressed(Key.ShiftRight);
             io.KeySuper = keyboardState.IsKeyPressed(Key.SuperLeft) || keyboardState.IsKeyPressed(Key.SuperRight);
-        }
-
-        internal void PressChar(char keyChar)
-        {
-            _pressedChars.Add(keyChar);
-        }
-
-        private static void SetKeyMappings()
-        {
-            var io = ImGuiNET.ImGui.GetIO();
-            io.KeyMap[(int)ImGuiKey.Tab] = (int)Key.Tab;
-            io.KeyMap[(int)ImGuiKey.LeftArrow] = (int)Key.Left;
-            io.KeyMap[(int)ImGuiKey.RightArrow] = (int)Key.Right;
-            io.KeyMap[(int)ImGuiKey.UpArrow] = (int)Key.Up;
-            io.KeyMap[(int)ImGuiKey.DownArrow] = (int)Key.Down;
-            io.KeyMap[(int)ImGuiKey.PageUp] = (int)Key.PageUp;
-            io.KeyMap[(int)ImGuiKey.PageDown] = (int)Key.PageDown;
-            io.KeyMap[(int)ImGuiKey.Home] = (int)Key.Home;
-            io.KeyMap[(int)ImGuiKey.End] = (int)Key.End;
-            io.KeyMap[(int)ImGuiKey.Delete] = (int)Key.Delete;
-            io.KeyMap[(int)ImGuiKey.Backspace] = (int)Key.Backspace;
-            io.KeyMap[(int)ImGuiKey.Enter] = (int)Key.Enter;
-            io.KeyMap[(int)ImGuiKey.Escape] = (int)Key.Escape;
-            io.KeyMap[(int)ImGuiKey.A] = (int)Key.A;
-            io.KeyMap[(int)ImGuiKey.C] = (int)Key.C;
-            io.KeyMap[(int)ImGuiKey.V] = (int)Key.V;
-            io.KeyMap[(int)ImGuiKey.X] = (int)Key.X;
-            io.KeyMap[(int)ImGuiKey.Y] = (int)Key.Y;
-            io.KeyMap[(int)ImGuiKey.Z] = (int)Key.Z;
         }
 
         private void CreateDeviceResources(DevicePtr device, TextureFormat colorOutputFormat)
@@ -583,7 +606,7 @@ namespace Silk.NET.WebGPU.Extensions.ImGui
 
             for (int i = 0; i < draw_data.CmdListsCount; i++)
             {
-                ImDrawListPtr cmd_list = draw_data.CmdListsRange[i];
+                ImDrawListPtr cmd_list = draw_data.CmdLists[i];
 
                 new ReadOnlySpan<ImDrawVert>((void*)cmd_list.VtxBuffer.Data, cmd_list.VtxBuffer.Size)
                 .CopyTo(new Span<ImDrawVert>(vertexData, (int)vertexOffsetInVertices, cmd_list.VtxBuffer.Size));
@@ -635,7 +658,7 @@ namespace Silk.NET.WebGPU.Extensions.ImGui
             int idx_offset = 0;
             for (int n = 0; n < draw_data.CmdListsCount; n++)
             {
-                ImDrawListPtr cmd_list = draw_data.CmdListsRange[n];
+                ImDrawListPtr cmd_list = draw_data.CmdLists[n];
                 for (int cmd_i = 0; cmd_i < cmd_list.CmdBuffer.Size; cmd_i++)
                 {
                     ImDrawCmdPtr pcmd = cmd_list.CmdBuffer[cmd_i];

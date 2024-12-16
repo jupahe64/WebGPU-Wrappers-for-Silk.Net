@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Silk.NET.WebGPU.Safe.Extensions
 {
-    public unsafe static class WgpuNativeExtension
+    public static unsafe class WgpuNativeExtension
     {
         public static DevicePtrWgpu GetExtension(this DevicePtr device, Wgpu wgpuExtension) 
         {

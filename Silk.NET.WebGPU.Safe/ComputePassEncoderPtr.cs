@@ -16,11 +16,6 @@ namespace Silk.NET.WebGPU.Safe
 
         public static implicit operator ComputePassEncoder*(ComputePassEncoderPtr ptr) => ptr._ptr;
 
-        public void BeginPipelineStatisticsQuery(QuerySetPtr querySet, uint queryIndex)
-        {
-            _wgpu.ComputePassEncoderBeginPipelineStatisticsQuery(_ptr, querySet, queryIndex);
-        }
-
         public void DispatchWorkgroups(uint workgroupCountX, uint workgroupCountY, uint workgroupCountZ)
         {
             _wgpu.ComputePassEncoderDispatchWorkgroups(_ptr, workgroupCountX, workgroupCountY, workgroupCountZ);
@@ -34,11 +29,6 @@ namespace Silk.NET.WebGPU.Safe
         public void End()
         {
             _wgpu.ComputePassEncoderEnd(_ptr);
-        }
-
-        public void EndPipelineStatisticsQuery()
-        {
-            _wgpu.ComputePassEncoderEndPipelineStatisticsQuery(_ptr);
         }
 
         public void InsertDebugMarker(string markerLabel)

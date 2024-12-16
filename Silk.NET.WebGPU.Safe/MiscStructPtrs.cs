@@ -49,7 +49,7 @@ namespace Silk.NET.WebGPU.Safe
         public void Release() => _wgpu.BindGroupRelease(_ptr);
     }
 
-    public unsafe static class BindGroupEntries
+    public static unsafe class BindGroupEntries
     {
         public static BindGroupEntry Buffer(uint binding, BufferPtr buffer, ulong offset, ulong size) => 
             new(binding: binding, buffer: buffer, offset: offset, size: size);
@@ -86,7 +86,7 @@ namespace Silk.NET.WebGPU.Safe
         public void Release() => _wgpu.BindGroupLayoutRelease(_ptr);
     }
 
-    public unsafe static class BindGroupLayoutEntries
+    public static unsafe class BindGroupLayoutEntries
     {
         public static BindGroupLayoutEntry Buffer(uint binding, ShaderStage visibility, BufferBindingType bindingType, 
             ulong minBindingSize, bool hasDynamicOffset = false) =>
@@ -333,7 +333,7 @@ namespace Silk.NET.WebGPU.Safe
 
             _wgpu.SurfaceGetCapabilities(_ptr, adapter, &nativeCapabilities);
 
-            capabilities = SurfaceCapabilities.UnpackFrom(&nativeCapabilities);
+            capabilities = SurfaceCapabilities.UnpackFrom(_wgpu, &nativeCapabilities);
 
             _wgpu.SurfaceCapabilitiesFreeMembers(nativeCapabilities);
         }
@@ -351,14 +351,21 @@ namespace Silk.NET.WebGPU.Safe
             );
         }
 
-        public void Present() => _wgpu.SurfacePresent(_ptr);
-
-        public void Unconfigure() => _wgpu.SurfaceUnconfigure(_ptr);
-
         public TextureFormat GetPreferredFormat(AdapterPtr adapter)
         {
             return _wgpu.SurfaceGetPreferredFormat(_ptr, adapter);
         }
+        
+        public void Present() => _wgpu.SurfacePresent(_ptr);
+        
+        public void SetLabel(string label)
+        {
+            using var marshalledLabel = new MarshalledString(label, NativeStringEncoding.UTF8);
+
+            _wgpu.SurfaceSetLabel(_ptr, marshalledLabel.Ptr);
+        }
+
+        public void Unconfigure() => _wgpu.SurfaceUnconfigure(_ptr);
 
         public void Reference() => _wgpu.SurfaceReference(_ptr);
 

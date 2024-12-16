@@ -21,15 +21,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="ImGui.NET" Version="1.89.7.1" />
-    <PackageReference Include="Silk.NET.Assimp" Version="2.20.0" />
-    <PackageReference Include="Silk.NET.Input" Version="2.20.0" />
-    <PackageReference Include="Silk.NET.Input.Extensions" Version="2.20.0" />
-    <PackageReference Include="Silk.NET.WebGPU" Version="2.20.0" />
-    <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" Version="2.20.0" />
-	<PackageReference Include="Silk.NET.Windowing" Version="2.20.0" />
-	<PackageReference Include="SixLabors.ImageSharp" Version="3.0.1" />
-	<PackageReference Include="TinyDialogsNet" Version="1.1.1" />
+    <PackageReference Include="ImGui.NET" Version="1.91.0.1" />
+    <PackageReference Include="Silk.NET.Assimp" Version="2.22.0" />
+    <PackageReference Include="Silk.NET.Input" Version="2.22.0" />
+    <PackageReference Include="Silk.NET.Input.Extensions" Version="2.22.0" />
+    <PackageReference Include="Silk.NET.WebGPU" Version="2.22.0" />
+    <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" Version="2.22.0" />
+	<PackageReference Include="Silk.NET.Windowing" Version="2.22.0" />
+	<PackageReference Include="SixLabors.ImageSharp" Version="3.1.6" />
+	<PackageReference Include="TinyDialogsNet" Version="2.0.0" />
   </ItemGroup>
 
   <ItemGroup>

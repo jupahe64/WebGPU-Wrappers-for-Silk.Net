@@ -1,12 +1,9 @@
 using System;
-using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Xml.Linq;
-using Silk.NET.Core.Attributes;
 using Silk.NET.Core.Native;
-using static System.Net.Mime.MediaTypeNames;
 using WGPU = Silk.NET.WebGPU;
+// ReSharper disable RedundantUnsafeContext
+// ReSharper disable RedundantNameQualifier
 
 namespace Silk.NET.WebGPU.Safe
 {
@@ -80,7 +77,7 @@ namespace Silk.NET.WebGPU.Safe
                 return null;
 
             var ptr = (T*)_payloadPtr;
-            *ptr = value!.Value;
+            *ptr = value.Value;
             _payloadPtr += sizeof(T);
             return ptr;
 
@@ -91,6 +88,18 @@ namespace Silk.NET.WebGPU.Safe
         {
             var ptr = (T*)_payloadPtr;
             _payloadPtr += sizeof(T) * count;
+            return ptr;
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public T* AddArray<T>(T[] array) where T : unmanaged
+        {
+            var ptr = (T*)_payloadPtr;
+            _payloadPtr += sizeof(T) * array.Length;
+            
+            for (var i = 0; i < array.Length; i++)
+                ptr[i] = array[i];
+            
             return ptr;
         }
 
@@ -261,10 +270,7 @@ namespace Silk.NET.WebGPU.Safe
             baseStruct.ArrayStride = ArrayStride;
             baseStruct.StepMode = StepMode;
             baseStruct.AttributeCount = (uint)Attributes.Length;
-            baseStruct.Attributes = payload.AddArray<VertexAttribute>(Attributes.Length);
-
-            for (int i = 0; i < Attributes.Length; i++)
-                baseStruct.Attributes[i] = Attributes[i];
+            baseStruct.Attributes = payload.AddArray(Attributes);
         }
     }
 
@@ -435,7 +441,7 @@ namespace Silk.NET.WebGPU.Safe
         }
     }
 
-    internal unsafe static class ShaderModuleDescriptor
+    internal static unsafe class ShaderModuleDescriptor
     {
         internal static void CalculatePayloadSize(ref PayloadSizeCalculator payloadSize, 
             string? label, ReadOnlySpan<Safe.ShaderModuleCompilationHint> compilationHints)
@@ -563,7 +569,7 @@ namespace Silk.NET.WebGPU.Safe
         }
     }
 
-    public unsafe partial struct RenderPassColorAttachment
+    public unsafe struct RenderPassColorAttachment
     {
         public TextureViewPtr View;
         public TextureViewPtr? ResolveTarget;
@@ -637,7 +643,7 @@ namespace Silk.NET.WebGPU.Safe
         }
     }
 
-    public unsafe partial struct SurfaceConfiguration
+    public unsafe struct SurfaceConfiguration
     {
         public DevicePtr Device;
         public TextureFormat Format;
@@ -658,12 +664,8 @@ namespace Silk.NET.WebGPU.Safe
             baseStruct.Device = Device;
             baseStruct.Format = Format;
             baseStruct.Usage = Usage;
-            baseStruct.ViewFormats = payload.AddArray<TextureFormat>(ViewFormats.Length);
             baseStruct.ViewFormatCount = (uint)ViewFormats.Length;
-
-            for (int i = 0; i < ViewFormats.Length; i++)
-                baseStruct.ViewFormats[i] = ViewFormats[i];
-
+            baseStruct.ViewFormats = payload.AddArray(ViewFormats);
             baseStruct.AlphaMode = AlphaMode;
             baseStruct.Width = Width;
             baseStruct.Height = Height;

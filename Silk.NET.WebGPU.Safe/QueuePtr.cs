@@ -8,8 +8,8 @@ namespace Silk.NET.WebGPU.Safe
 {
     public readonly unsafe partial struct QueuePtr
     {
-        private record struct Void();
-        private static RentalStorage<TaskCompletionSource<Void>> s_onSubmittedWorkTasks = new();
+        private record struct Void;
+        private static readonly RentalStorage<TaskCompletionSource<Void>> s_onSubmittedWorkTasks = new();
 
         private static void OnSubmittedWorkDoneCallback(QueueWorkDoneStatus status, void* data)
         {

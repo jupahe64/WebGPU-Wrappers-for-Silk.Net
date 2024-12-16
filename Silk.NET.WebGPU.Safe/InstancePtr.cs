@@ -160,6 +160,11 @@ namespace Silk.NET.WebGPU.Safe
         }
         #endregion
 
+        public bool HasWGSLLanguageFeature(WGSLFeatureName feature)
+        {
+            return _wgpu.InstanceHasWGSLLanguageFeature(_ptr, feature);
+        }
+
         public void ProcessEvents()
         {
             _wgpu.InstanceProcessEvents(_ptr);

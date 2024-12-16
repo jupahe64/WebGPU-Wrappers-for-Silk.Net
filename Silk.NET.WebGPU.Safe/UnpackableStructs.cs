@@ -1,3 +1,4 @@
+using System;
 using Silk.NET.Core.Attributes;
 using Silk.NET.Core.Native;
 using System.Diagnostics;
@@ -5,6 +6,40 @@ using WGPU = Silk.NET.WebGPU;
 
 namespace Silk.NET.WebGPU.Safe
 {
+    internal static unsafe class UnpackHelper
+    {
+        [AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false, Inherited = false)]
+        internal sealed class CallerArgumentExpressionAttribute(string parameterName) : Attribute
+        {
+            public string ParameterName { get; } = parameterName;
+        }
+        
+        public static string UnpackUtf8String(void* ptr,
+            [CallerArgumentExpression("ptr")] string callerParamName= "")
+        {
+            var str = SilkMarshal.PtrToString((nint)ptr, NativeStringEncoding.UTF8);
+            if (str == null)
+                throw new NullReferenceException($"Expected non-null string for {callerParamName} got null.");
+            
+            return str;
+        }
+        
+        public static string? UnpackUtf8StringNullable(void* ptr)
+        {
+            var str = SilkMarshal.PtrToString((nint)ptr, NativeStringEncoding.UTF8);
+            return str;
+        }
+
+        public static T[] UnpackArray<T>(nuint count, T* ptr) where T : unmanaged
+        {
+            var array = new T[count];
+
+            for (var i = 0; i < array.Length; i++)
+                array[i] = ptr[i];
+            
+            return array;
+        }
+    }
     public unsafe struct CompilationInfo
     {
         public CompilationMessage[] Messages;
@@ -19,7 +54,7 @@ namespace Silk.NET.WebGPU.Safe
             {
                 messages[i] = new CompilationMessage
                 {
-                    Message = SilkMarshal.PtrToString((nint)native->Messages[i].Message, NativeStringEncoding.UTF8),
+                    Message = UnpackHelper.UnpackUtf8StringNullable(native->Messages[i].Message),
                     Type = native->Messages[i].Type,
                     LineNum = native->Messages[i].LineNum,
                     LinePos = native->Messages[i].LinePos,
@@ -43,19 +78,38 @@ namespace Silk.NET.WebGPU.Safe
         ulong LineNum, ulong LinePos, ulong Offset, ulong Length,
         ulong Utf16LinePos, ulong Utf16Offset, ulong Utf16Length);
 
+    public unsafe struct AdapterInfo
+    {
+        public string Vendor;
+        public string Architecture;
+        public string Device;
+        public string Description;
+
+        internal static AdapterInfo UnpackFrom(WGPU.AdapterInfo* native)
+        {
+            return new AdapterInfo()
+            {
+                Vendor = UnpackHelper.UnpackUtf8String(native->Vendor),
+                Architecture = UnpackHelper.UnpackUtf8String(native->Architecture),
+                Device = UnpackHelper.UnpackUtf8String(native->Device),
+                Description = UnpackHelper.UnpackUtf8String(native->Description),
+            };
+        }
+    }
+
     public unsafe struct AdapterProperties
     {
         public uint VendorID;
 
-        public string? VendorName;
+        public string VendorName;
 
-        public string? Architecture;
+        public string Architecture;
 
         public uint DeviceID;
 
-        public string? Name;
+        public string Name;
 
-        public string? DriverDescription;
+        public string DriverDescription;
 
         public AdapterType AdapterType;
 
@@ -68,18 +122,11 @@ namespace Silk.NET.WebGPU.Safe
             var properties = new AdapterProperties
             {
                 VendorID = native->VendorID,
-                VendorName = SilkMarshal.PtrToString(
-                (nint)native->VendorName, NativeStringEncoding.UTF8),
-
-                Architecture = SilkMarshal.PtrToString(
-                (nint)native->Architecture, NativeStringEncoding.UTF8),
-
+                VendorName = UnpackHelper.UnpackUtf8String(native->VendorName),
+                Architecture = UnpackHelper.UnpackUtf8String(native->Architecture),
                 DeviceID = native->DeviceID,
-                Name = SilkMarshal.PtrToString(
-                (nint)native->Name, NativeStringEncoding.UTF8),
-
-                DriverDescription = SilkMarshal.PtrToString(
-                (nint)native->DriverDescription, NativeStringEncoding.UTF8),
+                Name = UnpackHelper.UnpackUtf8String(native->Name),
+                DriverDescription = UnpackHelper.UnpackUtf8String(native->DriverDescription),
 
                 AdapterType = native->AdapterType,
                 BackendType = native->BackendType
@@ -89,35 +136,40 @@ namespace Silk.NET.WebGPU.Safe
         }
     }
 
-    public unsafe partial struct SurfaceCapabilities
+    public unsafe struct SurfaceCapabilities : IDisposable
     {
-        public unsafe TextureFormat[] Formats;
+        private WebGPU _wgpu;
+        private WGPU.SurfaceCapabilities* _ptr;
+        public TextureFormat[] Formats;
 
-        public unsafe PresentMode[] PresentModes;
+        public PresentMode[] PresentModes;
 
         public CompositeAlphaMode[] AlphaModes;
 
-        internal static SurfaceCapabilities UnpackFrom(WGPU.SurfaceCapabilities* native)
+        internal static SurfaceCapabilities UnpackFrom(WebGPU wgpu, WGPU.SurfaceCapabilities* native)
         {
-            var formats = new TextureFormat[native->FormatCount];
-            var presentModes = new PresentMode[native->PresentModeCount];
-            var alphaModes = new CompositeAlphaMode[native->AlphaModeCount];
-
-            for (int i = 0; i < formats.Length; i++)
-                formats[i] = native->Formats[i];
-
-            for (int i = 0; i < presentModes.Length; i++)
-                presentModes[i] = native->PresentModes[i];
-
-            for (int i = 0; i < alphaModes.Length; i++)
-                alphaModes[i] = native->AlphaModes[i];
-
             return new SurfaceCapabilities
             {
-                Formats = formats,
-                PresentModes = presentModes,
-                AlphaModes = alphaModes
+                _wgpu = wgpu,
+                _ptr = native,
+                Formats = UnpackHelper.UnpackArray(
+                    native->FormatCount,
+                    native->Formats  
+                ),
+                PresentModes = UnpackHelper.UnpackArray(
+                    native->PresentModeCount,
+                    native->PresentModes  
+                ),
+                AlphaModes = UnpackHelper.UnpackArray(
+                    native->AlphaModeCount,
+                    native->AlphaModes  
+                )
             };
+        }
+        
+        public void Dispose()
+        {
+            _wgpu.SurfaceCapabilitiesFreeMembers(*_ptr);
         }
     }
 }

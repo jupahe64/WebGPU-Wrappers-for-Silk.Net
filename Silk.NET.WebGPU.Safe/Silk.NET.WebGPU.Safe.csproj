@@ -20,9 +20,9 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Silk.NET.Core" Version="2.20.0" />
-		<PackageReference Include="Silk.NET.WebGPU" Version="2.20.0" />
-		<PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.20.0" />
+		<PackageReference Include="Silk.NET.Core" Version="2.22.0" />
+		<PackageReference Include="Silk.NET.WebGPU" Version="2.22.0" />
+		<PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.22.0" />
 		<PackageReference Include="System.Memory" Version="4.5.5" />
 		<PackageReference Include="System.Runtime.InteropServices" Version="4.3.0" />
 		<PackageReference Include="System.Threading.Tasks" Version="4.3.0" />
