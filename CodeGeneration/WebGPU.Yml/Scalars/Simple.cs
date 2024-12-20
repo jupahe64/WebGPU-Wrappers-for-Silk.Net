@@ -89,7 +89,8 @@ public enum PrimitiveType : byte
 {
     InvalidValue,
     Void,
-    Bool,
+    ScalarsStart,
+    Bool = ScalarsStart,
     String,
     Uint16,
     Uint32,
@@ -99,7 +100,9 @@ public enum PrimitiveType : byte
     Int32,
     Float32,
     Float64,
-    ArrayOfBool,
+    ScalarsEnd,
+    ArraysStart,
+    ArrayOfBool = ArraysStart,
     ArrayOfString,
     ArrayOfUint16,
     ArrayOfUint32,
@@ -109,6 +112,7 @@ public enum PrimitiveType : byte
     ArrayOfInt32,
     ArrayOfFloat32,
     ArrayOfFloat64,
+    ArraysEnd,
 }
 
 public enum Pointer : byte

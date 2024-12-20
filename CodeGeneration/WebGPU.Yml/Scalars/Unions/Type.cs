@@ -8,10 +8,20 @@ public readonly struct Type
         return _primitiveType.HasValue;
     }
     
+    public bool IsPrimitiveType(PrimitiveType primitiveType)
+    {
+        return _primitiveType == primitiveType;
+    }
+    
     public bool IsComplexType(out string complexType)
     {
         complexType = _complexType ?? string.Empty;
         return _complexType != null;
+    }
+    
+    public bool IsComplexType(string complexType)
+    {
+        return _complexType == complexType;
     }
     
     internal bool IsValid => _primitiveType.HasValue || _complexType != null;
