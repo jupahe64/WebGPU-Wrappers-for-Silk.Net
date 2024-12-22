@@ -1,6 +1,7 @@
 ﻿using System;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
+using Silk.NET.WebGPU.Safe.Utils;
 using WGPU = Silk.NET.WebGPU;
 
 namespace Silk.NET.WebGPU.Safe
