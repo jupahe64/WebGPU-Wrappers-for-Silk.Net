@@ -18,7 +18,13 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\Silk.NET.WebGPU.Safe.CodeGenTemplates\Silk.NET.WebGPU.Safe.CodeGenTemplates.csproj" />
+      <ProjectReference Include="..\TemplatingLibrary\TemplatingLibrary.csproj" />
       <ProjectReference Include="..\WebGPU.Yml\WebGPU.Yml.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Templates\" />
     </ItemGroup>
 
 </Project>

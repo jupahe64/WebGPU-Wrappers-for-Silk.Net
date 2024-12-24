@@ -1,11 +1,26 @@
 ﻿using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
+using TemplatingLibrary;
+using TemplatingLibrary.TemplateLoading;
 using WebGPU.Yml;
 using WebGPU.Yml.Scalars;
 
 using _Type = WebGPU.Yml.Scalars.Unions.Type;
 using _Function = WebGPU.Yml.Function;
+
+var directory = Silk.NET.WebGPU.Safe.TemplatesEntryPoint.GetPath();
+var template = TemplateLoader.Load(File.ReadAllText(Path.Combine(directory, "Callbacks.cs")), Range.All);
+template.DebugPrint();
+
+var conversionTemplates = TemplateLoader.LoadAllDefined(
+    File.ReadAllText(Path.Combine(directory, "Conversions.cs")), Range.All);
+foreach (var (name, _template) in conversionTemplates)
+{
+    Console.WriteLine($"// ----- {name} -----");
+    _template.DebugPrint();
+}
+return;
 
 var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "res/webgpu.yml");
 WebGPU.Yml.Document? document;
@@ -227,7 +242,6 @@ string GenerateFunctionSignatureString(_Function method)
                        $"({parameterString})" +
                        $" -> {ToPascalCase(objectTypeObjectName)}" +
                        $" | GPUError<{ToPascalCase(statusTypeEnumName)}>";
-                break;
             
             //get info
             case [

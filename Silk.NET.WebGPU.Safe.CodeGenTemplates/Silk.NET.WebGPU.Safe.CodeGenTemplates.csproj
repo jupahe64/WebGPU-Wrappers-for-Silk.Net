@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <RootNamespace>Silk.NET.WebGPU.Safe</RootNamespace>
+        <TargetFrameworks>netstandard2.0;netstandard2.1;netcoreapp3.1;net5.0</TargetFrameworks>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <LangVersion>preview</LangVersion>
+        <Nullable>enable</Nullable>
+
+        <DefineConstants Condition="'$(TargetFramework)' == 'netstandard2.0'">NO_INDEX_RANGE</DefineConstants>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Silk.NET.Core" Version="2.22.0" />
+        <PackageReference Include="Silk.NET.WebGPU" Version="2.22.0" />
+        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.22.0" />
+        <PackageReference Include="System.Memory" Version="4.5.5" />
+        <PackageReference Include="System.Runtime.InteropServices" Version="4.3.0" />
+        <PackageReference Include="System.Threading.Tasks" Version="4.3.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Silk.NET.WebGPU.Safe\Silk.NET.WebGPU.Safe.csproj" />
+    </ItemGroup>
+
+</Project>

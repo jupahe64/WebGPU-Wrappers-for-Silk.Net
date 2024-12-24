@@ -27,6 +27,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebGPU.Yml", "CodeGeneratio
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodeGenTest", "CodeGeneration\CodeGenTest\CodeGenTest.csproj", "{F15032D1-F283-4131-ABAB-5FDF90FAB56A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Silk.NET.WebGPU.Safe.CodeGenTemplates", "Silk.NET.WebGPU.Safe.CodeGenTemplates\Silk.NET.WebGPU.Safe.CodeGenTemplates.csproj", "{E567F346-BA79-453C-8C7B-2A297A46DCD2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TemplatingLibrary", "CodeGeneration\TemplatingLibrary\TemplatingLibrary.csproj", "{1E8D4779-29CA-432E-961E-62ABFE57B888}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -73,6 +77,14 @@ Global
 		{F15032D1-F283-4131-ABAB-5FDF90FAB56A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F15032D1-F283-4131-ABAB-5FDF90FAB56A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F15032D1-F283-4131-ABAB-5FDF90FAB56A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E567F346-BA79-453C-8C7B-2A297A46DCD2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E567F346-BA79-453C-8C7B-2A297A46DCD2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E567F346-BA79-453C-8C7B-2A297A46DCD2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E567F346-BA79-453C-8C7B-2A297A46DCD2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1E8D4779-29CA-432E-961E-62ABFE57B888}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1E8D4779-29CA-432E-961E-62ABFE57B888}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1E8D4779-29CA-432E-961E-62ABFE57B888}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1E8D4779-29CA-432E-961E-62ABFE57B888}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -86,6 +98,7 @@ Global
 		{70B44B88-AF74-44E6-9326-321E217564FC} = {B01961D1-CC2F-42E3-B560-9CD98126083B}
 		{1EE22DFB-1F49-454F-B55E-5EE1FBC854F9} = {344F3215-8497-49DA-8569-3A893B8D8608}
 		{F15032D1-F283-4131-ABAB-5FDF90FAB56A} = {344F3215-8497-49DA-8569-3A893B8D8608}
+		{1E8D4779-29CA-432E-961E-62ABFE57B888} = {344F3215-8497-49DA-8569-3A893B8D8608}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {636C9BF9-A89F-49EE-A346-2F1821BDD053}
