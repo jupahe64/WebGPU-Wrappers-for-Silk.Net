@@ -33,7 +33,9 @@ public static unsafe class CallbackNameRegistry
         #endregion
         #endregion
         
+        #region TEMPLATE REPLACE(`_obj`, $Callback.CallParametersString)
         callback(_obj);
+        #endregion
     }
 }
 #endregion
