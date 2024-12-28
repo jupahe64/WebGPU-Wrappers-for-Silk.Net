@@ -1,45 +1,62 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
+using System.Text.RegularExpressions;
 using TemplatingLibrary.TemplateLoading;
 
 namespace TemplatingLibrary;
 
 public class LoadedTemplate
 {
-    internal LoadedTemplate(string text, IReadOnlyList<RegionMarker> regionMarkers, 
-        IReadOnlyList<TemplateTextRange> textRanges)
+    internal IReadOnlyList<RegionMarker> RegionMarkers { get; }
+
+    internal IReadOnlyList<TemplateTextRange> TextRanges { get; }
+    internal string Text { get; }
+    internal int ReplacementCount { get; }
+
+    internal LoadedTemplate(string text, IReadOnlyList<RegionMarker> regionMarkers,
+        IReadOnlyList<TemplateTextRange> textRanges, int replacementCount)
     {
-        _text = text;
-        _regionMarkers = regionMarkers;
-        _textRanges = textRanges;
+        Text = text;
+        RegionMarkers = regionMarkers;
+        TextRanges = textRanges;
+        ReplacementCount = replacementCount;
     }
-    
-    private readonly string _text;
-    private readonly IReadOnlyList<RegionMarker> _regionMarkers;
-    private readonly IReadOnlyList<TemplateTextRange> _textRanges;
 
     public void DebugPrint()
     {
+        var replacementPtr = 0;
+        var replacements = new string[ReplacementCount];
+
+        foreach (var marker in RegionMarkers)
+        {
+            if (!marker.IsBeginMarker(out _, out _, out ReplaceRegion? region)) 
+                continue;
+            
+            foreach ((int _, int idx) in region.Ranges)
+            {
+                replacements[idx] = region.VariableName;
+            }
+        }
+        
         var sb = new StringBuilder();
-        foreach (var textRange in _textRanges)
+        foreach (var textRange in TextRanges)
         {
             bool isReplaceRange = textRange.IsReplaceMatch(out _);
             
             if (textRange.Indentation.HasValue)
                 sb.Append(' ', textRange.Indentation.Value);
-            
+
             if (isReplaceRange)
+            {
                 sb.Append('[');
-            sb.Append(_text.AsSpan(textRange.Begin..textRange.End));
-            if (isReplaceRange)
+                sb.Append(replacements[replacementPtr++]);
                 sb.Append(']');
+            }
+            else
+                sb.Append(Text.AsSpan(textRange.Begin..textRange.End));
             
             if (textRange.NewLine)
                 sb.Append(Environment.NewLine);
-        }
-        foreach (var regionMarker in _regionMarkers)
-        {
-            
-            //if (regionMarker.IsBeginMarker(out int begin))
         }
         Console.WriteLine(sb.ToString());
     }
