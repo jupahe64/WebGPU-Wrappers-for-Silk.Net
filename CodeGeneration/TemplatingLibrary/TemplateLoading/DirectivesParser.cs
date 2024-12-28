@@ -25,15 +25,21 @@ internal static class DirectivesParser
     public record ForeachDirective(int Line, int Column, string VariableName, string CollectionName)
         : IParsedDirective;
     
+    public record InsertDirective(int Line, int Column, string VariableName)
+        : IParsedDirective;
+    
     public static List<IParsedDirective> Parse(string text, int lineNumber, int lineBegin, IReadOnlyList<Token> tokens)
     {
         List<IParsedDirective> parsedDirectives = [];
         var tokenIdx = 0;
         while (tokens[tokenIdx].Type != TokenType.EOL)
         {
-            var directiveName = ConsumeToken(TokenType.Identifier);
-            int column = directiveName.Column;
-            switch (GetValue(directiveName))
+            var directiveNameToken = ConsumeToken(TokenType.Identifier);
+            int column = directiveNameToken.Column;
+            var directiveName = GetValue(directiveNameToken);
+            Token accessorToken;
+            String accessor;
+            switch (directiveName)
             {
                 case "DEFINE":
                     ConsumeToken(TokenType.OpenParens);
@@ -47,7 +53,7 @@ internal static class DirectivesParser
                     ConsumeToken(TokenType.OpenParens);
                     var patternToken = ConsumeToken(TokenType.StringWithBackticks);
                     ConsumeToken(TokenType.Comma);
-                    var accessorToken = ConsumeToken(TokenType.FieldAccessor);
+                    accessorToken = ConsumeToken(TokenType.FieldAccessor);
 
                     var flags = ReplaceFlags.None;
                     while (tokens[tokenIdx].Type != TokenType.CloseParens)
@@ -65,7 +71,7 @@ internal static class DirectivesParser
                     ConsumeToken(TokenType.CloseParens);
                     
                     var pattern = GetValue(patternToken)[1..^1].ToString();
-                    var accessor = GetValue(accessorToken).ToString();
+                    accessor = GetValue(accessorToken).ToString();
                     parsedDirectives.Add(new ReplaceDirective(lineNumber, column, pattern, accessor, flags));
                     break;
                 case "FOREACH":
@@ -79,6 +85,16 @@ internal static class DirectivesParser
                     var collectionAccessor = GetValue(collectionAccessorToken).ToString();
                     parsedDirectives.Add(new ForeachDirective(lineNumber, column, varAccessor, collectionAccessor));
                     break;
+                case "INSERT":
+                    ConsumeToken(TokenType.OpenParens);
+                    accessorToken = ConsumeToken(TokenType.FieldAccessor);
+                    ConsumeToken(TokenType.CloseParens);
+                    
+                    accessor = GetValue(accessorToken).ToString();
+                    parsedDirectives.Add(new InsertDirective(lineNumber, column, accessor));
+                    break;
+                default:
+                    throw new ParserError(lineNumber, column, $"Unknown directive {directiveName}");
             }
         }
         

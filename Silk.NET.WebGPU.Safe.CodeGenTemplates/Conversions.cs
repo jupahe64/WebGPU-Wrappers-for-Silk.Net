@@ -30,13 +30,17 @@ public class Conversions
         }
     }
     
-    public static unsafe void PackStructs(PackableStruct packableStruct)
+    public static unsafe void PackStructs(PackableStruct obj)
     {
         #region TEMPLATE DEFINE("PackStructs")
         var payloadSizeCalculator = new PayloadSizeCalculator();
 
-        #region TEMPLATE FOREACH($Struct : $PackableStructs) REPLACE(`([Pp])ackableStruct`, $Struct.Name)
-        packableStruct.CalculatePayloadSize(ref payloadSizeCalculator);
+        #region TEMPLATE FOREACH($Struct : $.PackableStructs)
+        #region TEMPLATE REPLACE(`PackableStruct`, $Struct.Name)
+        #region TEMPLATE REPLACE(`obj`, $Struct.VariableName)
+        obj.CalculatePayloadSize(ref payloadSizeCalculator);
+        #endregion
+        #endregion
         #endregion
         
         payloadSizeCalculator.GetSize(out int size, out int stringPoolOffset);
@@ -44,19 +48,27 @@ public class Conversions
         byte* ptr = stackalloc byte[size];
         var payloadWriter = new PayloadWriter(size, ptr, ptr + stringPoolOffset);
         
-        #region TEMPLATE FOREACH($Struct : $PackableStructs) REPLACE(`([Pp])ackableStruct`, $Struct.Name)
+        #region TEMPLATE FOREACH($Struct : $.PackableStructs)
+        #region TEMPLATE REPLACE(`PackableStruct`, $Struct.Name)
+        #region TEMPLATE REPLACE(`obj`, $Struct.VariableName)
         WGPU.PackableStruct _packableStruct = default;
-        packableStruct.PackInto(ref _packableStruct, ref payloadWriter);
+        obj.PackInto(ref _packableStruct, ref payloadWriter);
+        #endregion
+        #endregion
         #endregion
 
         #endregion
     }
 
-    public static unsafe void UnpackStructs(WGPU.UnpackableStruct unpackableStruct)
+    public static unsafe void UnpackStructs(WGPU.UnpackableStruct obj)
     {
         #region TEMPLATE DEFINE("UnpackStructs")
-        #region TEMPLATE FOREACH($Struct : $PackableStructs) REPLACE(`([Uu])npackableStruct`, $Struct.Name)
-        var _unpackableStruct = UnpackableStruct.UnpackFrom(&unpackableStruct);
+        #region TEMPLATE FOREACH($Struct : $.PackableStructs)
+        #region TEMPLATE REPLACE(`UnpackableStruct`, $Struct.Name) 
+        #region TEMPLATE REPLACE(`obj`, $Struct.VariableName)
+        var _obj = UnpackableStruct.UnpackFrom(&obj);
+        #endregion
+        #endregion
         #endregion
         #endregion
     }

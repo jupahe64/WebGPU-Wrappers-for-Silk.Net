@@ -61,7 +61,7 @@ public static class DirectivesLexer
     static (TokenType, string)[] tokenStrings = {
         (TokenType.Spaces,              @"\s+"),
         (TokenType.Identifier,          "[_a-zA-Z][_a-zA-Z0-9]*"),
-        (TokenType.FieldAccessor,       @"\$[_a-zA-Z][_a-zA-Z0-9]*(?:\.[_a-zA-Z][_a-zA-Z0-9]*)*"),
+        (TokenType.FieldAccessor,       @"\$(?:[_a-zA-Z][_a-zA-Z0-9]*)?(?:\.[_a-zA-Z][_a-zA-Z0-9]*)*"),
         (TokenType.String,              "\"[^\"]*\""),
         (TokenType.StringWithBackticks, "`[^`]*`"),
         (TokenType.OpenParens,          @"\("),

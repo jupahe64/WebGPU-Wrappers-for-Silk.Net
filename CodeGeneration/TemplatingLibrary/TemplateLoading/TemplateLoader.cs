@@ -66,12 +66,14 @@ public class TemplateLoader
     #endregion
     
     #region Variables
-    private readonly Stack<(Regex regex, List<int> rangesRef)> _replaceRegionStack = new ();
+    private readonly Stack<(Regex regex, List<(int rangeRef, int replacementIdx)> replaceRanges)> _replaceRegionStack = new ();
     private readonly Stack<IReadOnlyList<DirectivesParser.IParsedDirective>> _directivesPerRegionStack = [];
     private string? _currentTemplateName = null;
     private bool _isInTemplateRegion = false;
     private int _currentTemplateIndentation = 0;
     private int _directiveNestingLevel = 0;
+    private int _replaceRangesCount = 0;
+    private bool _isInInsertRegion = false;
     #endregion
 
     private TemplateLoader(string text, Range range, bool hasNamedTemplates)
@@ -167,7 +169,7 @@ public class TemplateLoader
 
     private void HandleRegularLine(int lineNumber, TokenizedLine line, bool isLastLine)
     {
-        if (!_isInTemplateRegion)
+        if (!_isInTemplateRegion || _isInInsertRegion)
             return;
         
         Debug.Assert(line.Indentation != -1);
@@ -180,7 +182,7 @@ public class TemplateLoader
         
         var isFirstRange = true;
         int previousMatchEnd = line.Begin + line.Indentation;
-        (Match match, List<int> rangesRef)? earliestMatch;
+        (Match match, List<(int rangeRef, int replacementIdx)> replaceRanges)? earliestMatch;
         do
         {
             earliestMatch = null;
@@ -192,7 +194,7 @@ public class TemplateLoader
                     continue;
                 
                 earliestIndex = match.Index;
-                earliestMatch = (match, rangesRef);
+                earliestMatch = (match, replaceRanges: rangesRef);
             }
 
             if (earliestMatch == null)
@@ -217,7 +219,7 @@ public class TemplateLoader
                 newLine: !isLastLine && matchEnd == line.End,
                 replaceMatch: earliestMatch.Value.match);
             
-            earliestMatch.Value.rangesRef.Add(_ranges.Count);
+            earliestMatch.Value.replaceRanges.Add((_ranges.Count, _replaceRangesCount++));
             _ranges.Add(replaceMatchRange);
             Debug.Assert(!_text.AsSpan(_ranges[^1].Begin.._ranges[^1].End).Contains('\n'));
             isFirstRange = false;
@@ -250,21 +252,34 @@ public class TemplateLoader
         
         if (expectsDefine)
             throw new ValidationError(directive.Line, directive.Column, "Expected define directive");
+        
+        if (_isInInsertRegion)
+            throw new ValidationError(directive.Line, directive.Column, "Can't have any regions inside an" +
+                                                                        " insert region");
                         
         switch (directive)
         {
             case DirectivesParser.ForeachDirective d:
                 _directiveRegionMarkers.Add(
-                    RegionMarker.CreateBeginMarker(_ranges.Count, new LoopRegion(d.VariableName, d.CollectionName))
+                    RegionMarker.CreateBeginMarker(_ranges.Count, _replaceRangesCount, 
+                        new ForeachLoopRegion(d.VariableName, d.CollectionName))
                 );
                 break;
             case DirectivesParser.ReplaceDirective d:
-                List<int> ranges = [];
+                List<(int rangeRef, int replacementIdx)> ranges = [];
                 _directiveRegionMarkers.Add(
-                    RegionMarker.CreateBeginMarker(_ranges.Count, new ReplaceRegion(d.VariableName, ranges))
+                    RegionMarker.CreateBeginMarker(_ranges.Count, _replaceRangesCount, 
+                        new ReplaceRegion(d.VariableName, ranges))
                 );
                 var regex = new Regex(d.Pattern, RegexOptions.Compiled);
                 _replaceRegionStack.Push((regex, rangesRef: ranges));
+                break;
+            case DirectivesParser.InsertDirective d:
+                _directiveRegionMarkers.Add(
+                    RegionMarker.CreateBeginMarker(_ranges.Count, _replaceRangesCount, 
+                        new InsertRegion(indentation, d.VariableName))
+                );
+                _isInInsertRegion = true;
                 break;
             default:
                 throw new UnreachableException();
@@ -276,10 +291,17 @@ public class TemplateLoader
         if (directive is DirectivesParser.ReplaceDirective)
             _replaceRegionStack.Pop();
         
-        _directiveRegionMarkers.Add(RegionMarker.CreateEndMarker(_ranges.Count));
+        _directiveRegionMarkers.Add(RegionMarker.CreateEndMarker(_ranges.Count, _replaceRangesCount));
 
-        if (directive is DirectivesParser.DefineDirective)
-            EndTemplate();
+        switch (directive)
+        {
+            case DirectivesParser.DefineDirective:
+                EndTemplate();
+                break;
+            case DirectivesParser.InsertDirective:
+                _isInInsertRegion = false;
+                break;
+        }
     }
     
     private void BeginTemplate(int indentation, string? name)
@@ -299,11 +321,12 @@ public class TemplateLoader
         Debug.Assert(_directiveNestingLevel == 0);
         
         _loadedTemplates[_currentTemplateName ?? string.Empty] =
-            new LoadedTemplate(_text, _directiveRegionMarkers, _ranges);
+            new LoadedTemplate(_text, _directiveRegionMarkers, _ranges, _replaceRangesCount);
 
         _isInTemplateRegion = false;
         _currentTemplateName = null;
         _directiveRegionMarkers = [];
         _ranges = [];
+        _replaceRangesCount = 0;
     }
 }
