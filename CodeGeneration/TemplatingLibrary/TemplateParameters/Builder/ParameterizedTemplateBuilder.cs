@@ -96,15 +96,14 @@ public abstract class AbstractRegionBuilder<T> where T : AbstractRegionBuilder<T
         Action<ReplaceRegionBuilder>? body = null)
     {
         ThrowOnBadUsage();
-        Context.EnterReplaceRegion(variableAccessor, out var replaceRanges, 
-            out int replacementOffset);
+        Context.EnterReplaceRegion(variableAccessor, out var replaceRanges);
         
-        foreach ((int rangeIdx, int replacementIdx) in replaceRanges)
+        foreach ((int rangeIdx, int replacementSlot) in replaceRanges)
         {
             Debug.Assert(Context.Template.TextRanges[rangeIdx]
                 .IsReplaceMatch(out var match));
             string replacement = replacer(match!);
-            Context.SetReplacement(replacementOffset, replacementIdx, replacement);
+            Context.SetReplacement(replacementSlot, replacement);
         }
 
         if (body != null)

@@ -4,14 +4,14 @@ namespace TemplatingLibrary.TemplateParameters.Builder;
 
 internal class ParameterizedTemplateBuilderContext
 {
-    private const string InvalidReplacementString = "<invalidReplacement>";
+    private const string MissingReplacementString = "<MISSING REPLACEMENT>";
     
     public LoadedTemplate Template { get; }
     
     public ParameterizedTemplateBuilderContext(LoadedTemplate template)
     {
         Template = template;
-        _replacements.AddRange(Enumerable.Repeat(InvalidReplacementString, template.ReplacementCount));
+        _replacementSlots = new string[template.ReplacementCount];
     }
 
     public void EnterForeachLoop(FieldAccessor collectionAccessor, out string variableName)
@@ -45,7 +45,7 @@ internal class ParameterizedTemplateBuilderContext
 
     public void NewLoopIteration()
     {
-        if (!Template.RegionMarkers[_regionMarkerIdx].IsEndMarker(out _, out int replacementsEndPtr))
+        if (!Template.RegionMarkers[_regionMarkerIdx].IsEndMarker(out _, out _))
             throw new InvalidOperationException("End of foreach loop region not reached yet");
 
         (int beginMarkerIdx, var beginMarker) = _regionStack.Peek();
@@ -58,8 +58,6 @@ internal class ParameterizedTemplateBuilderContext
         _rangePtr = rangesBeginPtr;
         _replacementPtr = replacementBeginPtr;
         
-        int replacementCount = replacementsEndPtr - replacementBeginPtr;
-        _replacements.AddRange(Enumerable.Repeat(InvalidReplacementString, replacementCount));
         _regionMarkerIdx = beginMarkerIdx + 1;
     }
 
@@ -87,15 +85,13 @@ internal class ParameterizedTemplateBuilderContext
         Debug.Assert(Template.RegionMarkers[_regionMarkerIdx].IsEndMarker(
             out int rangesEndPtr, out int replacementsEndPtr));
         
-        int count = replacementsEndPtr - replacementsBeginPtr;
-        _replacements.RemoveRange(replacementsBeginPtr, count);
         _instructions.Add((_writtenRangesCount, new ParameterizedTemplate.SetRangePointer(rangesEndPtr)));
         _rangePtr = rangesEndPtr;
         _replacementPtr = replacementsEndPtr;
     }
 
     public void EnterReplaceRegion(FieldAccessor variableAccessor, 
-        out IReadOnlyList<(int rangeRef, int replacementIdx)> replaceRanges, out int replacementOffset)
+        out IReadOnlyList<(int rangeRef, int replacementSlot)> replaceRanges)
     {
         var marker = Template.RegionMarkers[_regionMarkerIdx];
         if (!marker.IsBeginMarker(out int rangePtr, out int replacementPtr, out ReplaceRegion? replaceRegion))
@@ -105,8 +101,6 @@ internal class ParameterizedTemplateBuilderContext
             throw new ArgumentException("Variable name mismatch");
         
         replaceRanges = replaceRegion.Ranges;
-        replacementOffset = _writtenReplacementCount - _replacementPtr;
-        Debug.Assert(replacementOffset >= 0);
         _regionStack.Push((_regionMarkerIdx, marker));
         Advance(rangePtr, replacementPtr);
     }
@@ -148,11 +142,10 @@ internal class ParameterizedTemplateBuilderContext
         Advance(rangePtr, replacementPtr);
     }
 
-    public void SetReplacement(int replacementOffset, int replacementIdx, string replacement)
+    public void SetReplacement(int replacementSlot, string replacement)
     {
-        replacementIdx += replacementOffset;
-        Debug.Assert(_writtenReplacementCount <= replacementIdx);
-        _replacements[replacementIdx] = replacement;
+        Debug.Assert(_replacementPtr <= replacementSlot && replacementSlot < _replacementSlots.Length);
+        _replacementSlots[replacementSlot] = replacement;
     }
 
     public void Insert(ParameterizedTemplate template)
@@ -176,7 +169,6 @@ internal class ParameterizedTemplateBuilderContext
 
     public ParameterizedTemplate CreateTemplate()
     {
-        Debug.Assert(_replacements.Count == _writtenReplacementCount);
         return new ParameterizedTemplate(Template, _replacements, _instructions, _writtenRangesCount);
     }
 
@@ -186,7 +178,11 @@ internal class ParameterizedTemplateBuilderContext
         Debug.Assert(newReplacementPtr >= _replacementPtr);
         
         _writtenRangesCount += newRangePointer - _rangePtr;
-        _writtenReplacementCount += newReplacementPtr - _replacementPtr;
+        
+        Debug.Assert(!_replacementSlots.AsSpan(_replacementPtr..newReplacementPtr)
+            .Contains(MissingReplacementString));
+        
+        _replacements.AddRange(_replacementSlots.AsSpan(_replacementPtr..newReplacementPtr));
         
         _rangePtr = newRangePointer;
         _replacementPtr = newReplacementPtr;
@@ -197,13 +193,15 @@ internal class ParameterizedTemplateBuilderContext
     private readonly List<string> _replacements = [];
     private readonly List<(int writtenRangesCount, ParameterizedTemplate.IInstruction instruction)> _instructions = [];
     private int _writtenRangesCount = 0;
-    private int _writtenReplacementCount = 0;
     private int _rangePtr = 0;
     private int _replacementPtr = 0;
     #endregion
     
     #region Variables
+
+    private string[] _replacementSlots;
     private int _regionMarkerIdx = 0;
     private readonly Stack<(int beginMarkerIdx, RegionMarker beginMarker)> _regionStack = new();
+    private readonly Stack<(int writtenReplacementsCount, int regionStackPtr)> _foreachStack = new();
     #endregion
 }
