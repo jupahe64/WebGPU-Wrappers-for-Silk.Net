@@ -36,7 +36,8 @@ public class ParameterizedTemplate
         var instructionIdx = 0;
         while (writtenRangesCount < _rangesToWrite)
         {
-            if (instructionIdx < _instructions.Count &&
+            // handle all instruction that are meant to be executed at this point
+            while (instructionIdx < _instructions.Count &&
                 _instructions[instructionIdx].writtenRangesCount == writtenRangesCount)
             {
                 switch (_instructions[instructionIdx].instruction)
