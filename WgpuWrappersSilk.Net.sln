@@ -25,7 +25,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "CodeGeneration", "CodeGener
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebGPU.Yml", "CodeGeneration\WebGPU.Yml\WebGPU.Yml.csproj", "{1EE22DFB-1F49-454F-B55E-5EE1FBC854F9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodeGenTest", "CodeGeneration\CodeGenTest\CodeGenTest.csproj", "{F15032D1-F283-4131-ABAB-5FDF90FAB56A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WrapperCodeGenExperiments", "CodeGeneration\WrapperCodeGenExperiments\WrapperCodeGenExperiments.csproj", "{F15032D1-F283-4131-ABAB-5FDF90FAB56A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Silk.NET.WebGPU.Safe.CodeGenTemplates", "Silk.NET.WebGPU.Safe.CodeGenTemplates\Silk.NET.WebGPU.Safe.CodeGenTemplates.csproj", "{E567F346-BA79-453C-8C7B-2A297A46DCD2}"
 EndProject
