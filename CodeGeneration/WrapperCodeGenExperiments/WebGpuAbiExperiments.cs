@@ -40,8 +40,15 @@ public static class WebGpuAbiExperiments
             var _args = (functionType.Args ?? []).ToArray();
             if (_args is [.. var withoutUserdata, { Name: "userdata" }])
             {
-                Console.WriteLine($"  delegate void {ToPascalCase(functionType.Name)}" +
-                                  $"({GenerateParameterString(withoutUserdata)});");
+                bool isUnsafe = false;
+                var parameterString = GenerateParameterString(withoutUserdata, ref isUnsafe);
+                if (isUnsafe)
+                    Console.WriteLine($"""
+                                        //unsafe (needs to be wrapped or hidden from the user)
+                                        delegate void _{ToPascalCase(functionType.Name)}({parameterString});
+                                      """);
+                else
+                    Console.WriteLine($"  delegate void {ToPascalCase(functionType.Name)}({parameterString});");
             }
             else
             {
@@ -63,7 +70,31 @@ public static class WebGpuAbiExperiments
                                 """);
             foreach (var member in _struct.Members ?? [])
             {
-                Console.WriteLine($"    {ResolveType(member.Type)} {ToPascalCase(member.Name)};");
+                var isUnsafe = false;
+                string typeStr;
+                if (member.Pointer == Pointer.Immutable)
+                {
+                    if (member.Type.IsArrayOf)
+                        typeStr = ResolveType(member.Type, ref isUnsafe, member.Pointer);
+                    else if (member.Type is { ScalarOfComplexType: (KIND.Struct, _) })
+                        typeStr = "ref " + ResolveType(member.Type, ref isUnsafe);
+                    else if (member.Type.IsPrimitiveType(out _))
+                        typeStr = "ref " + ResolveType(member.Type, ref isUnsafe);
+                    else
+                        throw new InvalidOperationException($"Can't have pointer member to {member.Type} as member");
+                }
+                else
+                {
+                    typeStr = ResolveType(member.Type, ref isUnsafe, member.Pointer);
+                }
+                
+                if (isUnsafe)
+                    Console.WriteLine($"""
+                                           //unsafe (needs to be wrapped or hidden from the user)
+                                           {typeStr} _{ToPascalCase(member.Name)};
+                                       """);
+                else
+                    Console.WriteLine($"    {typeStr} {ToPascalCase(member.Name)};");
             }
             Console.WriteLine("  }");
         }
@@ -71,7 +102,11 @@ public static class WebGpuAbiExperiments
         Console.WriteLine("functions:");
         foreach (var function in root.Functions)
         {
-            Console.WriteLine("  "+GenerateFunctionSignatureString(function));
+            var isUnsafe = false;
+            var signatureStr = GenerateFunctionSignatureString(function, ref isUnsafe);
+            if (isUnsafe)
+                Console.WriteLine("    //unsafe (needs to be wrapped or hidden from the user)");
+            Console.WriteLine("  "+signatureStr);
         }
 
         Console.WriteLine("methods:");
@@ -81,14 +116,18 @@ public static class WebGpuAbiExperiments
             Console.WriteLine($"  {ToPascalCase(_object.Name)}:");
             foreach (var method in _object.Methods ?? [])
             {
-                Console.WriteLine("    "+GenerateFunctionSignatureString(method));
+                var isUnsafe = false;
+                var signatureStr = GenerateFunctionSignatureString(method, ref isUnsafe);
+                if (isUnsafe)
+                    Console.WriteLine("    //unsafe (needs to be wrapped or hidden from the user)");
+                Console.WriteLine("    "+signatureStr);
             }
         }
     }
 
-    private static string GenerateFunctionSignatureString(_Function method)
+    private static string GenerateFunctionSignatureString(_Function method, ref bool isUnsafe)
     {
-        string parameterString = GenerateParameterString(method.Args ?? []);
+        string parameterString = GenerateParameterString(method.Args ?? [], ref isUnsafe);
         
         if (method.ReturnsAsync != null && method.ReturnsAsync.Count != 0)
         {
@@ -98,7 +137,8 @@ public static class WebGpuAbiExperiments
                 case [
                         {
                             Name: "status", 
-                            Type.ScalarOfComplexType: (KIND.Enum, var statusTypeEnumName)
+                            Type.ScalarOfComplexType: (KIND.Enum, var statusTypeEnumName),
+                            Pointer: null
                         }, 
                         {
                             Name: var objectParamName, 
@@ -107,21 +147,22 @@ public static class WebGpuAbiExperiments
                         },
                         {
                             Name: "message", 
-                            Type.ScalarOfPrimitiveType: PRIMITIVE.String
+                            Type.ScalarOfPrimitiveType: PRIMITIVE.String,
+                            Pointer: null
                         }
                     ]:
                 
-                    return $"async {ToPascalCase(method.Name)}" +
+                    return $"async {(isUnsafe?"_":"")}{ToPascalCase(method.Name)}" +
                            $"({parameterString})" +
                            $" -> {ToPascalCase(objectTypeObjectName)}" +
                            $" | GPUError<{ToPascalCase(statusTypeEnumName)}>";
             
                 //get info
                 case [
-                    {Type.ScalarOfComplexType: (kind: KIND.Struct, var structTypeName)}
+                    {Type.ScalarOfComplexType: (kind: KIND.Struct, var structTypeName), Pointer: null}
                 ]:
                 
-                    return $"async {ToPascalCase(method.Name)}" +
+                    return $"async {(isUnsafe?"_":"")}{ToPascalCase(method.Name)}" +
                            $"({parameterString})" +
                            $" -> {ToPascalCase(structTypeName)}";
             
@@ -129,7 +170,8 @@ public static class WebGpuAbiExperiments
                 case [
                         {
                             Name: "status", 
-                            Type.ScalarOfComplexType: (KIND.Enum, var statusTypeEnumName)
+                            Type.ScalarOfComplexType: (KIND.Enum, var statusTypeEnumName),
+                            Pointer: null
                         },
                         {
                             Type.ScalarOfComplexType: (kind: KIND.Struct, var structTypeName),
@@ -137,17 +179,21 @@ public static class WebGpuAbiExperiments
                         }
                     ]:
                 
-                    return $"async {ToPascalCase(method.Name)}" +
+                    return $"async {(isUnsafe?"_":"")}{ToPascalCase(method.Name)}" +
                            $"({parameterString})" +
                            $" -> {ToPascalCase(structTypeName)}" +
                            $" | GPUError<{ToPascalCase(statusTypeEnumName)}>";
             
                 //awaitable action/event (can fail with status and message)
                 case [
-                        {Name: "status", Type.ScalarOfComplexType: (KIND.Enum, var statusTypeEnumName)}
+                    {
+                        Name: "status", 
+                        Type.ScalarOfComplexType: (KIND.Enum, var statusTypeEnumName),
+                        Pointer: null
+                    }
                     ]:
                 
-                    return $"async {ToPascalCase(method.Name)}" +
+                    return $"async {(isUnsafe?"_":"")}{ToPascalCase(method.Name)}" +
                            $"({parameterString})" +
                            $" -> Void | GPUError<{ToPascalCase(statusTypeEnumName)}>";
             
@@ -160,19 +206,32 @@ public static class WebGpuAbiExperiments
         {
             if (method.Returns != null)
             {
-                return $"{ToPascalCase(method.Name)}" +
+                if (method.Returns.Pointer == Pointer.Immutable)
+                {
+                    switch (method.Returns.Type)
+                    {
+                        case {ScalarOfPrimitiveType: PRIMITIVE.Void}:
+                        case {IsArrayOf: true}:
+                            break;
+                        default:
+                            throw new InvalidOperationException($"Can't have pointer to {method.Returns.Type}");
+                    }
+                }
+
+                string returnTypeStr = ResolveType(method.Returns.Type, ref isUnsafe, method.Returns.Pointer);
+                return $"{(isUnsafe?"_":"")}{ToPascalCase(method.Name)}" +
                        $"({parameterString})" +
-                       $" -> {ResolveType(method.Returns.Type)}";
+                       $" -> {returnTypeStr}";
             }
             else
             {
-                return $"{ToPascalCase(method.Name)}" +
+                return $"{(isUnsafe?"_":"")}{ToPascalCase(method.Name)}" +
                        $"({parameterString})";
             }
         }
     }
 
-    private static string GenerateParameterString(IReadOnlyList<ParameterType> arguments)
+    private static string GenerateParameterString(IReadOnlyList<ParameterType> arguments, ref bool isUnsafe)
     {
         var sb = new StringBuilder();
 
@@ -182,7 +241,44 @@ public static class WebGpuAbiExperiments
             if (!isFirst)
                 sb.Append(", ");
 
-            sb.Append(ResolveType(arg.Type));
+            if (arg.Pointer == Pointer.Immutable)
+            {
+                switch (arg.Type)
+                {
+                    case {ScalarOfComplexType: (KIND.Struct, _)}:
+                        sb.Append("in ");
+                        sb.Append(ResolveType(arg.Type, ref isUnsafe));
+                        break;
+                    case {ScalarOfPrimitiveType: PRIMITIVE.Void}:
+                    case {IsArrayOf: true}:
+                        sb.Append(ResolveType(arg.Type, ref isUnsafe, arg.Pointer));
+                        break;
+                    default:
+                        throw new InvalidOperationException($"Can't have pointer to {arg.Type}");
+                }
+            }
+            else if (arg.Pointer == Pointer.Mutable)
+            {
+                switch (arg.Type)
+                {
+                    case {ScalarOfComplexType: (KIND.Enum or KIND.Struct, _)}:
+                        sb.Append("out ");
+                        sb.Append(ResolveType(arg.Type, ref isUnsafe));
+                        break;
+                    case {ScalarOfPrimitiveType: PRIMITIVE.Void}:
+                        string typeStr = ResolveType(arg.Type, ref isUnsafe, arg.Pointer);
+                        Debug.Assert(typeStr == "void*");
+                        sb.Append(typeStr);
+                        break;
+                    default:
+                        throw new InvalidOperationException($"Can't have mutable pointer to {arg.Type}");
+                }
+            }
+            else
+            {
+                sb.Append(ResolveType(arg.Type, ref isUnsafe, arg.Pointer));
+            }
+
             sb.Append(' ');
             sb.Append(ToPascalCase(arg.Name, useLowerCase: true));
             isFirst = false;
@@ -191,7 +287,7 @@ public static class WebGpuAbiExperiments
         return sb.ToString();
     }
 
-    private static string ResolveType(_Type type)
+    private static string ResolveType(_Type type, ref bool isUnsafe, Pointer? pointer = null)
     {
         bool isArray = type.IsArrayOf;
         string typeName;
@@ -210,7 +306,7 @@ public static class WebGpuAbiExperiments
             // ReSharper disable once SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault
             typeName = primitiveType switch
             {
-                PRIMITIVE.Void => "IntPtr",
+                PRIMITIVE.Void => "void*",
                 PRIMITIVE.Bool => "bool",
                 PRIMITIVE.String => "string",
                 PRIMITIVE.Uint16 => "ushort",
@@ -228,9 +324,23 @@ public static class WebGpuAbiExperiments
         {
             throw new UnreachableException();
         }
-    
+
+        // ReSharper disable once InvertIf
         if (isArray)
+        {
+            if (pointer == null)
+                throw new InvalidOperationException($"Expected array type {type} to be used via pointer");
+            
             typeName += "[]";
+        }
+        else
+        {
+            if (pointer != null && !type.IsPrimitiveType(PRIMITIVE.Void))
+                throw new InvalidOperationException($"Expected scalar type {type} to not be used via pointer");
+            
+            if (pointer != null)
+                isUnsafe = true;
+        }
 
         return typeName;
     }
