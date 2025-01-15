@@ -31,7 +31,7 @@ public class TypeDef
                     Doc = parser.Consume<Scalar>().Value;
                     break;
                 case "type":
-                    Type = new _Type(parser.ParseScalar());
+                    Type = _Type.Parse(parser.ParseScalar());
                     break;
                 default:
                     Debugger.Break();

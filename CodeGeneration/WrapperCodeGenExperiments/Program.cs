@@ -1,4 +1,4 @@
 ﻿using WrapperCodeGenExperiments;
 
-CodeGenExperiments.GenerateCallbacks();
-//WebGpuAbiExperiments.WriteAbiInfo();
+//CodeGenExperiments.GenerateCallbacks();
+WebGpuAbiExperiments.WriteAbiInfo();

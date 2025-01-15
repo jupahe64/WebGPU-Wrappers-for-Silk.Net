@@ -1,21 +1,17 @@
 ﻿using System.Diagnostics;
 using System.Text;
-using System.Text.RegularExpressions;
 using WebGPU.Yml;
 using WebGPU.Yml.Scalars;
 
 using _Type = WebGPU.Yml.Scalars.Unions.Type;
 using _Function = WebGPU.Yml.Function;
+using KIND = WebGPU.Yml.Scalars.Unions.Type.ComplexTypeKind;
+using PRIMITIVE = WebGPU.Yml.Scalars.Unions.Type.PrimitiveType;
 
 namespace WrapperCodeGenExperiments;
 
-public static partial class WebGpuAbiExperiments
+public static class WebGpuAbiExperiments
 {
-    [GeneratedRegex(@"^(?:([\w_]+)\.)?([\w_]+)$")]
-    private static partial Regex ComplexScalarTypeRegex();
-    [GeneratedRegex(@"^array<(?:([\w_]+)\.)?([\w_]+)>$")]
-    private static partial Regex ComplexArrayTypeRegex();
-    
     public static void WriteAbiInfo()
     {
         string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "res/webgpu.yml");
@@ -100,14 +96,20 @@ public static partial class WebGpuAbiExperiments
             {
                 //get or create resource/object (can fail with status and message)
                 case [
-                        {Name: "status", Type: var statusType}, 
-                        {Name: var objectParamName, Type: var objectType, Pointer: null}, 
-                        {Name: "message", Type: var messageType}
-                    ] when statusType.IsComplexType(out string statusTypeName) &&
-                           statusTypeName.Split('.') is ["enum", var statusTypeEnumName] &&
-                           objectType.IsComplexType(out string objectTypeName) &&
-                           objectTypeName.Split('.') is ["object", var objectTypeObjectName] &&
-                           messageType.IsPrimitiveType(PrimitiveType.String):
+                        {
+                            Name: "status", 
+                            Type.ScalarOfComplexType: (KIND.Enum, var statusTypeEnumName)
+                        }, 
+                        {
+                            Name: var objectParamName, 
+                            Type.ScalarOfComplexType: (KIND.Object, var objectTypeObjectName), 
+                            Pointer: null
+                        },
+                        {
+                            Name: "message", 
+                            Type.ScalarOfPrimitiveType: PRIMITIVE.String
+                        }
+                    ]:
                 
                     return $"async {ToPascalCase(method.Name)}" +
                            $"({parameterString})" +
@@ -116,8 +118,8 @@ public static partial class WebGpuAbiExperiments
             
                 //get info
                 case [
-                    {Name: var structTypeName, Type: var structType}
-                ] when structType.IsComplexType($"struct.{structTypeName}"):
+                    {Type.ScalarOfComplexType: (kind: KIND.Struct, var structTypeName)}
+                ]:
                 
                     return $"async {ToPascalCase(method.Name)}" +
                            $"({parameterString})" +
@@ -125,11 +127,15 @@ public static partial class WebGpuAbiExperiments
             
                 //get info (can fail with status and message)
                 case [
-                        {Name: "status", Type: var statusType},
-                        {Name: var structTypeName, Type: var structType, Pointer: Pointer.Immutable}
-                    ] when statusType.IsComplexType(out string statusTypeName) &&
-                           statusTypeName.Split('.') is ["enum", var statusTypeEnumName] &&
-                           structType.IsComplexType($"struct.{structTypeName}"):
+                        {
+                            Name: "status", 
+                            Type.ScalarOfComplexType: (KIND.Enum, var statusTypeEnumName)
+                        },
+                        {
+                            Type.ScalarOfComplexType: (kind: KIND.Struct, var structTypeName),
+                            Pointer: Pointer.Immutable
+                        }
+                    ]:
                 
                     return $"async {ToPascalCase(method.Name)}" +
                            $"({parameterString})" +
@@ -138,9 +144,8 @@ public static partial class WebGpuAbiExperiments
             
                 //awaitable action/event (can fail with status and message)
                 case [
-                        {Name: "status", Type: var statusType}
-                    ] when statusType.IsComplexType(out string statusTypeName) &&
-                           statusTypeName.Split('.') is ["enum", var statusTypeEnumName]:
+                        {Name: "status", Type.ScalarOfComplexType: (KIND.Enum, var statusTypeEnumName)}
+                    ]:
                 
                     return $"async {ToPascalCase(method.Name)}" +
                            $"({parameterString})" +
@@ -169,83 +174,53 @@ public static partial class WebGpuAbiExperiments
 
     private static string GenerateParameterString(IReadOnlyList<ParameterType> arguments)
     {
+        var sb = new StringBuilder();
+
+        var isFirst = true;
+        foreach (var arg in arguments)
         {
-            var sb = new StringBuilder();
+            if (!isFirst)
+                sb.Append(", ");
 
-            var isFirst = true;
-            foreach (var arg in arguments)
-            {
-                if (!isFirst)
-                    sb.Append(", ");
-
-                sb.Append(ResolveType(arg.Type));
-                sb.Append(' ');
-                sb.Append(ToPascalCase(arg.Name, useLowerCase: true));
-                isFirst = false;
-            }
-            
-            return sb.ToString();
+            sb.Append(ResolveType(arg.Type));
+            sb.Append(' ');
+            sb.Append(ToPascalCase(arg.Name, useLowerCase: true));
+            isFirst = false;
         }
+        
+        return sb.ToString();
     }
 
     private static string ResolveType(_Type type)
     {
-        var isArray = false;
-        var isStruct = false;
-        var isCallbackFunc = false;
-        var isObject = false;
+        bool isArray = type.IsArrayOf;
         string typeName;
-        if (type.IsComplexType(out string complexType))
+        if (type.IsComplexType(out var kind, out string complexTypeName))
         {
-            Match match;
-            if ((match = ComplexScalarTypeRegex().Match(complexType)).Success)
-            {
-                string category = match.Groups[1].Value;
-                if (category is not ("enum" or "bitflag" or "struct" or "function_type" or "object"))
-                    throw new InvalidOperationException($"Unsupported complex type category {category}");
-        
-                isStruct = category == "struct";
-                isCallbackFunc = category == "function_type";
-                isObject = category == "object";
-                typeName = ToPascalCase(match.Groups[2].Value);
-                isArray = false;
-            }
-            else if ((match = ComplexArrayTypeRegex().Match(complexType)).Success)
-            {
-                string category = match.Groups[1].Value;
-                if (category is not ("enum" or "bitflag" or "struct" or "object"))
-                    throw new InvalidOperationException($"Unsupported complex type category {category}");
-        
-                isStruct = category == "struct";
-                isObject = category == "object";
-                typeName = ToPascalCase(match.Groups[2].Value);
-                isArray = true;
-            }
-            else
-                throw new InvalidOperationException($"Unsupported complex type {complexType}");
+            typeName = ToPascalCase(complexTypeName);
+            
+            if (isArray && kind is not (KIND.Enum or KIND.Bitflag or KIND.Struct or KIND.Object))
+                throw new InvalidOperationException($"Unsupported complex type category {kind} for arrays");
+            
+            if (!isArray && kind is not (KIND.Enum or KIND.Bitflag or KIND.Struct or KIND.FunctionType or KIND.Object))
+                throw new InvalidOperationException($"Unsupported complex type category {kind} for scalars");
         }
         else if (type.IsPrimitiveType(out var primitiveType))
         {
-            if (primitiveType is >= PrimitiveType.ArraysStart and < PrimitiveType.ArraysEnd)
-            {
-                primitiveType -= PrimitiveType.ArraysStart - PrimitiveType.ScalarsStart;
-                isArray = true;
-            }
-    
             // ReSharper disable once SwitchExpressionHandlesSomeKnownEnumValuesWithExceptionInDefault
             typeName = primitiveType switch
             {
-                PrimitiveType.Void => "IntPtr",
-                PrimitiveType.Bool => "bool",
-                PrimitiveType.String => "string",
-                PrimitiveType.Uint16 => "ushort",
-                PrimitiveType.Uint32 => "uint",
-                PrimitiveType.Uint64 => "ulong",
-                PrimitiveType.Usize => "nuint",
-                PrimitiveType.Int16 => "short",
-                PrimitiveType.Int32 => "int",
-                PrimitiveType.Float32 => "float",
-                PrimitiveType.Float64 => "double",
+                PRIMITIVE.Void => "IntPtr",
+                PRIMITIVE.Bool => "bool",
+                PRIMITIVE.String => "string",
+                PRIMITIVE.Uint16 => "ushort",
+                PRIMITIVE.Uint32 => "uint",
+                PRIMITIVE.Uint64 => "ulong",
+                PRIMITIVE.Usize => "nuint",
+                PRIMITIVE.Int16 => "short",
+                PRIMITIVE.Int32 => "int",
+                PRIMITIVE.Float32 => "float",
+                PRIMITIVE.Float64 => "double",
                 _ => throw new UnreachableException(),
             };
         }

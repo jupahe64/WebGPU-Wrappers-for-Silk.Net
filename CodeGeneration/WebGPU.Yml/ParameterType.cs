@@ -47,7 +47,7 @@ public class ParameterType
                     Doc = parser.ParseScalar();
                     break;
                 case "type":
-                    Type = new _Type(parser.ParseScalar());
+                    Type = _Type.Parse(parser.ParseScalar());
                     break;
                 case "pointer":
                     Pointer = Simple.ParsePointer(parser.ParseScalar());
